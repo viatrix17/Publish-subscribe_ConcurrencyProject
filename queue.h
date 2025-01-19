@@ -1,3 +1,6 @@
+#ifndef QUEUE_H    
+#define QUEUE_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -49,3 +52,23 @@ struct TQueue {
 
 };
 typedef struct TQueue TQueue;
+
+TQueue* createQueue(int *size);
+
+void destroyQueue(TQueue **queue);
+
+void subscribe(TQueue *queue, pthread_t *thread);
+
+void unsubscribe(TQueue *queue, pthread_t *thread);
+
+void addMsg(TQueue *queue, void *msg);
+
+void getMsg(TQueue *queue, pthread_t *thread);
+
+void getAvailable(TQueue *queue, pthread_t *thread);
+
+void removeMsg(TQueue *queue, void *msg);
+
+void setSize(TQueue *queue, int *newSize);
+
+#endif

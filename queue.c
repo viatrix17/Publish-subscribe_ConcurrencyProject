@@ -13,17 +13,17 @@ TQueue* createQueue(int *size) {
     pthread_mutex_init(&queue->operations_mutex, NULL);
     queue->maxSize = size;
     queue->startMsg = NULL;
+    queue->lastMsg = NULL;
     queue->firstSub = NULL;
+    queue->lastSub = NULL;
     queue->size = 0;
     return queue;
 }
 
 void destroyQueue(TQueue **queue) {
-    //pthread_mutex_lock(&(*queue)->operations_mutex);
     if (queue == NULL)  {
         return; //jesli juz nic nie ma, to nie ma czego zwolnic
     }
-    //nic nie moze przeszkodzic
     Message *currMsg = (*queue)->startMsg, *tempMsg;
     subscriber* currSub = (*queue)->firstSub, *tempSub;
     while (currMsg != NULL && currSub != NULL) {
@@ -38,7 +38,6 @@ void destroyQueue(TQueue **queue) {
     pthread_mutex_destroy(&(*queue)->operations_mutex);
     free(*queue);
     *queue = NULL;
-    
 }
 
 void subscribe(TQueue *queue, pthread_t *thread) {
@@ -50,23 +49,22 @@ void subscribe(TQueue *queue, pthread_t *thread) {
     }
     newSubscriber->threadID = thread;
     newSubscriber->next = NULL;
+    newSubscriber->messages->head = NULL;
+    newSubscriber->messages->tail = NULL;
+    newSubscriber->messages->size = 0;
     
     pthread_mutex_lock(&queue->operations_mutex);
     if(queue->firstSub == NULL) {
         queue->firstSub = newSubscriber;
     }
     else {
-        subscriber* curr = queue->firstSub;
-        while (curr->next != NULL) {
-            curr = curr->next;
-        }
-        curr->next = newSubscriber; 
+        queue->lastSub->next = newSubscriber; 
+        queue->lastSub = newSubscriber;
     }
-    
     pthread_mutex_unlock(&queue->operations_mutex);
 }
 
-void unsubscribe(TQueue *queue, pthread_t *thread) {
+void unsubscribe(TQueue *queue, pthread_t *thread) { //dok
     pthread_mutex_lock(&queue->operations_mutex);
     if (queue == NULL || queue->firstSub == NULL) {
         pthread_mutex_unlock(&queue->operations_mutex);
@@ -144,7 +142,8 @@ void addMsg(TQueue *queue, void *msg) { //dodac semafor
     printf("exiting critical section put\n");
 }
 
-void getMsg(TQueue *queue, pthread_t *thread) { //watek moze czytac wiadomosci wyslane po subskrypcji
+void getMsg(TQueue *queue, pthread_t *thread) { 
+    //watek moze czytac wiadomosci wyslane po subskrypcji
 
     printf("enters critical section get\n");
     pthread_mutex_lock(&queue->operations_mutex);
