@@ -1,8 +1,5 @@
 #include "queue.h"
 
-//ewentualnie jeszcze zrobic lastmessage zeby tego nie iterowac zcaly czas
-
-
 TQueue* createQueue(int *size) { 
     TQueue* queue = (TQueue*)malloc(sizeof(TQueue));
     if (queue == NULL) { 
@@ -10,7 +7,8 @@ TQueue* createQueue(int *size) {
         return NULL;
     }
 
-    pthread_mutex_init(&queue->operations_mutex, NULL);
+    pthread_mutex_init(&queue->access_mutex, NULL);
+    pthread_mutex_init(&queue->operation_mutex, NULL);
     queue->maxSize = size;
     queue->startMsg = NULL;
     queue->lastMsg = NULL;
@@ -35,12 +33,12 @@ void destroyQueue(TQueue **queue) {
         free(tempMsg); //zwolnienie pamieci dla elementu
         free(tempSub);
     }
-    pthread_mutex_destroy(&(*queue)->operations_mutex);
+    pthread_mutex_destroy(&(*queue)->access_mutex);
     free(*queue);
     *queue = NULL;
 }
 
-void subscribe(TQueue *queue, pthread_t *thread) {
+void subscribe(TQueue *queue, pthread_t *thread) { //sprawdzanie na początku, czy już ten zasubkrybował, bo po co tworzy drugi raz 
 
     subscriber* newSubscriber = (subscriber*)malloc(sizeof(subscriber));
     if (newSubscriber = NULL) {
@@ -52,8 +50,9 @@ void subscribe(TQueue *queue, pthread_t *thread) {
     newSubscriber->messages->head = NULL;
     newSubscriber->messages->tail = NULL;
     newSubscriber->messages->size = 0;
+    pthread_mutex_init(newSubscriber->empty, NULL);
     
-    pthread_mutex_lock(&queue->operations_mutex);
+    pthread_mutex_lock(&queue->access_mutex);
     if(queue->firstSub == NULL) {
         queue->firstSub = newSubscriber;
     }
@@ -61,13 +60,13 @@ void subscribe(TQueue *queue, pthread_t *thread) {
         queue->lastSub->next = newSubscriber; 
         queue->lastSub = newSubscriber;
     }
-    pthread_mutex_unlock(&queue->operations_mutex);
+    pthread_mutex_unlock(&queue->access_mutex);
 }
 
-void unsubscribe(TQueue *queue, pthread_t *thread) { //dok
-    pthread_mutex_lock(&queue->operations_mutex);
+void unsubscribe(TQueue *queue, pthread_t *thread) { //dok usuwanie chyba trzeba zrobic
+    pthread_mutex_lock(&queue->access_mutex);
     if (queue == NULL || queue->firstSub == NULL) {
-        pthread_mutex_unlock(&queue->operations_mutex);
+        pthread_mutex_unlock(&queue->access_mutex);
         printf("exiting critical section remove\n");
         return 1;
     }
@@ -75,33 +74,41 @@ void unsubscribe(TQueue *queue, pthread_t *thread) { //dok
     subscriber* prev;
     while (curr->next != NULL) {
         if (curr->threadID == thread) {
+            pthread_mutex_destroy(&curr->empty);
             prev->next = curr->next;
-            printf("Element removed!\n");
-            queue->size--;
+            //usuwac jeszcze tego subskrybenta, wszystkie jego dane DODAĆ
+            printf("Unsubscribed!\n");
             return 1;
         }
         prev = curr;
         curr = curr->next;
     }
-    pthread_mutex_unlock(&queue->operations_mutex);
+    pthread_mutex_unlock(&queue->access_mutex);
     printf("exiting critical section remove\n");
-    printf("Element not found!\n");
+    printf("Subsriber not found!\n");
     return 0;
 }
 
-void addMsg(TQueue *queue, void *msg) { //dodac semafor
-    //sem_wait(size_sem); //SEMAFOR DODAC po opusczeniu zamka, bo inaczej dwa mogą opuscic dodajc wiadomosc
+void addMsg(TQueue *queue, void *msg) {
+    
     printf("in put\n");
+    
+    pthread_mutex_lock(&queue->operation_mutex);
+    while (queue->size != queue->maxSize) { //block, obudzi się, jak bedzie usunieta wiadomosc
+        pthread_cond_wait(&queue->full, &queue->operation_mutex);
+    }
+    pthread_mutex_unlock(&queue->operation_mutex);
+
     Message* newMsg = (Message*)malloc(sizeof(Message)); //owning the memory it's pointing to
     if (newMsg == NULL) {
         printf("Memory allocation failed!\n");
         return;
     }
     printf("entering critical section put\n");
-    pthread_mutex_lock(&queue->operations_mutex);
+    pthread_mutex_lock(&queue->access_mutex);
     if (queue->subCount == 0) {
-        //czy to legalne, że po prostu jej nie dodam, bo po prostu muszę ją i tak usunąć XD
-        pthread_mutex_unlock(&queue->operations_mutex);
+        //abort mission
+        pthread_mutex_unlock(&queue->access_mutex);
         return;
     }
     newMsg->content = msg;
@@ -138,7 +145,7 @@ void addMsg(TQueue *queue, void *msg) { //dodac semafor
         currSub = currSub->next;
     }
 
-    pthread_mutex_unlock(&queue->operations_mutex);
+    pthread_mutex_unlock(&queue->access_mutex);
     printf("exiting critical section put\n");
 }
 
@@ -146,7 +153,7 @@ void getMsg(TQueue *queue, pthread_t *thread) {
     //watek moze czytac wiadomosci wyslane po subskrypcji
 
     printf("enters critical section get\n");
-    pthread_mutex_lock(&queue->operations_mutex);
+    pthread_mutex_lock(&queue->access_mutex);
 
     printf("in get\n");
     subscriber* temp = queue->firstSub; //temp is a current thread
@@ -159,16 +166,16 @@ void getMsg(TQueue *queue, pthread_t *thread) {
     }
     else if (temp->messages == NULL) {
         printf("the list for this sub is empty. Waiting...\n"); //musi byc blokujace uzyc zmiennych warunkowych
-        ///
-        //
-        //zmienne warunkowe uga buga; 
+        pthread_mutex_lock(&temp->list_empty);
+        pthread_cond_wait(&temp->empty, &temp->list_empty);
+        pthread_mutex_unlock(&temp->list_empty); 
     }
-    //usuwanie pierwszej wiadomosci z listy to read w watku
+    //usuwanie pierwszej wiadomosci z listy "to read" w watku
     Message* currMsg, *prevMsg;
     temp->messages->head = temp->messages->head->next; //nie ma zwalniania pamieci, bo to ten wskaznik z głownej kolejki
     temp->messages->size--;
     queue->startMsg->read++;
-    //sprawdzanie czy jest odczytana wiadomosc
+    //sprawdzanie czy jest odczytana wiadomosc przez wszystkich
     if (currMsg->read == currMsg->subscribers->size) {
         Message* tempMsg = queue->startMsg;
         while (tempMsg != currMsg) {
@@ -177,15 +184,18 @@ void getMsg(TQueue *queue, pthread_t *thread) {
         }
         if (tempMsg != NULL) {
             prevMsg->next = tempMsg->next;
-            //usuwa jedną wiadomośc podnieść SEMAFOR 
         }   
+        queue->size--;
+        pthread_mutex_lock(&queue->operation_mutex); //budzenie jakiegos watku, ktore chce dodac wiadomosc
+        pthread_cond_signal(&queue->full);  
+        pthread_mutex_unlock(&queue->operation_mutex);
     }
-    pthread_mutex_unlock(&queue->operations_mutex);
+    pthread_mutex_unlock(&queue->access_mutex);
     printf("exiting critical section get\n");
 }
 
 void getAvailable(TQueue *queue, pthread_t *thread) {
-    pthread_mutex_lock(&queue->operations_mutex);
+    pthread_mutex_lock(&queue->access_mutex);
     subscriber* tempSub = queue->firstSub;
     while (tempSub->threadID != thread) {
         tempSub = tempSub->next;
@@ -195,15 +205,16 @@ void getAvailable(TQueue *queue, pthread_t *thread) {
         return 1;
     }
     printf("The number of available messages for this thread is: %d\n", tempSub->messages->size);
-    pthread_mutex_unlock(&queue->operations_mutex);
+    pthread_mutex_unlock(&queue->access_mutex);
 }
 
-void removeMsg(TQueue *queue, void *msg) { //dodac semafor // bezwarunkowo usuwa wiadomosc
+void removeMsg(TQueue *queue, void *msg) { 
+    // bezwarunkowo usuwa wiadomosc
     printf("entering critical section remove\n");
-    pthread_mutex_lock(&queue->operations_mutex);
+    pthread_mutex_lock(&queue->access_mutex);
     printf("in remove\n");
     if (queue == NULL || queue->startMsg == NULL) {
-        pthread_mutex_unlock(&queue->operations_mutex);
+        pthread_mutex_unlock(&queue->access_mutex);
         printf("exiting critical section remove\n");
         return 1;
     }
@@ -225,44 +236,38 @@ void removeMsg(TQueue *queue, void *msg) { //dodac semafor // bezwarunkowo usuwa
             prevMsg->next = currMsg->next;
             printf("Element removed!\n");
             queue->size--;
-            //podnies semafor, bo masz jedno mniej, czyli jedno wiecej miejxce
-            pthread_mutex_unlock(&queue->operations_mutex);
+            //budzenie watku ktory chce dodac wiadomosc
+            pthread_mutex_lock(&queue->operation_mutex);
+            pthread_cond_signal(&queue->full);  
+            pthread_mutex_unlock(&queue->operation_mutex);
+            pthread_mutex_unlock(&queue->access_mutex);
             return;
         }
         prevMsg = currMsg;
         currMsg = currMsg->next;
     }
     printf("Element not found!\n");
-    pthread_mutex_unlock(&queue->operations_mutex);
+    pthread_mutex_unlock(&queue->access_mutex);
     printf("exiting critical section remove\n");
     return 1;
 }
 
-void setSize(TQueue *queue, int *newSize) { //dok semfaory
+void setSize(TQueue *queue, int *newSize) { //usuwanie wiadomosci dok
     printf("entering critical section maxSize\n");
-    pthread_mutex_lock(&queue->operations_mutex);
+    pthread_mutex_lock(&queue->access_mutex);
     printf("in maxSize\n");
     if (newSize < queue->size) {
         Message* curr = queue->startMsg;
         Message* prev;
-        //usuwanie wiadomosci 
+        //usuwanie wiadomosci dok
         for (int i = 0; i < queue->size - *newSize; i++) {
             //prev->next = curr->next;
             curr = curr->next;
         }
         queue->startMsg = curr;
-        for (int i = 0; i < queue->maxSize - queue->size; i++) {
-            //opuszczanie semafora do zera, bo jest wypełnione na maxa
-        }
         queue->size = *newSize;
     }
-    else {
-        for (int i = 0; i < *newSize - queue->maxSize; i++){
-
-        }
-        //podnies semafor newSize-maxSize, bo tyle jest wiecej miejsca
-    }
     queue->maxSize = *newSize;
-    pthread_mutex_unlock(&queue->operations_mutex);
+    pthread_mutex_unlock(&queue->access_mutex);
     printf("exiting critical section maxSize\n");
 }
