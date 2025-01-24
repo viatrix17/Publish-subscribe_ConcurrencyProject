@@ -27,12 +27,10 @@ struct Message {
 };
 typedef struct Message Message;
 
-//kazdy subskrybent ma listę wiadomosci do przeczytania
 typedef struct Subscriber {
     pthread_t *threadID;
     struct Subscriber* next;
     Message *startReading;
-    List* queues;
     pthread_mutex_t *list_empty; //kazdy subskrybent ma zmienną warunkową i ona jest niezależna od innych subskrybentów, inni subskrybenci mogą się zablokować regardless
     pthread_cond_t *empty;
     //subskrybent nie moze dwa razy tej samej kolejki zasubskrybowac, trzeba to sprawdzać DODAC
@@ -63,7 +61,7 @@ void unsubscribe(TQueue *queue, pthread_t *thread);
 
 void addMsg(TQueue *queue, void *msg);
 
-void getMsg(TQueue *queue, pthread_t *thread);
+void* getMsg(TQueue *queue, pthread_t *thread);
 
 void getAvailable(TQueue *queue, pthread_t *thread);
 
