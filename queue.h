@@ -10,51 +10,48 @@
 #include <unistd.h>
 #include <time.h>
 
-struct Node {
-    void* data;
-    Node* next;
-};
-typedef struct Node Node;
-
 struct List {
     int size;
-    Node* head;
-    Node* tail;
+    void* head;
+    void* tail;
 };
 typedef struct List List;
-//każda wiadomosc ma liste subskybentow
+
+typedef struct Subscriber Subscriber;
+
 struct Message {
     void* content;
-    Message* next;
-    int read; //ile razy została ta wiadomość odczytana
-    List* subscribers; //porównywanie czy liczba read zgadza się z subskrybentami, jesli tak, to usuwasz'; List->size == read
+    struct Message* next;
+    int readCount; //ma zejsc do zera
+    struct Subscriber *firstSub; //wskaznik na pierwszego subskrybenta ktory to odczyta
 };
 typedef struct Message Message;
 
 //kazdy subskrybent ma listę wiadomosci do przeczytania
-struct subscriber {
+typedef struct Subscriber {
     pthread_t *threadID;
-    subscriber* next;
-    List* messages;
+    struct Subscriber* next;
+    Message *startReading;
     List* queues;
     pthread_mutex_t *list_empty; //kazdy subskrybent ma zmienną warunkową i ona jest niezależna od innych subskrybentów, inni subskrybenci mogą się zablokować regardless
     pthread_cond_t *empty;
-    //subskrybent nie moze dwa razy tej samej kolejki zasubskrybowac, trzeba to sprawdzać
-};
-typedef struct subscriber subscriber;
+    //subskrybent nie moze dwa razy tej samej kolejki zasubskrybowac, trzeba to sprawdzać DODAC
+}Subscriber;
 
 struct TQueue {
     int maxSize;
-    int size;
-    int subCount;
-    Message* startMsg;
-    Message* lastMsg;
-    subscriber* firstSub;
-    subscriber* lastSub;
-    pthread_mutex_t *operation_mutex, *access_mutex;
+    List *msgList;
+    List *subList;
+
+    pthread_mutex_t *access_mutex;
+
+    pthread_mutex_t *operation_mutex;
     pthread_cond_t *full;
 };
 typedef struct TQueue TQueue;
+
+
+
 
 TQueue* createQueue(int *size);
 

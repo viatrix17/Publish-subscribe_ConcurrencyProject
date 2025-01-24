@@ -1,5 +1,24 @@
 #include "queue.h"
 
+extern int start;
+
+void delMsg(TQueue *queue, Message *msg) {
+    if (queue->msgList->head == msg) {
+            queue->msgList->head = ((Message*)queue->msgList->head)->next; //zmienia na liscie
+        }
+        else { //usuwanie wiadomosci
+            Message *prevMsg = queue->msgList->head;
+            while (prevMsg->next != msg) {
+                prevMsg = prevMsg->next;
+            }
+            prevMsg->next = prevMsg->next->next;
+        }
+        queue->msgList->size--;
+        pthread_mutex_lock(queue->operation_mutex); //budzenie jakiegos watku, ktore chce dodac wiadomosc bo ta jest usunieta
+        pthread_cond_signal(queue->full);  
+        pthread_mutex_unlock(queue->operation_mutex);
+}
+
 TQueue* createQueue(int *size) { 
     TQueue* queue = (TQueue*)malloc(sizeof(TQueue));
     if (queue == NULL) { 
@@ -7,14 +26,13 @@ TQueue* createQueue(int *size) {
         return NULL;
     }
 
-    pthread_mutex_init(&queue->access_mutex, NULL);
-    pthread_mutex_init(&queue->operation_mutex, NULL);
+    pthread_mutex_init(queue->access_mutex, NULL);
+    pthread_mutex_init(queue->operation_mutex, NULL);
     queue->maxSize = size;
-    queue->startMsg = NULL;
-    queue->lastMsg = NULL;
-    queue->firstSub = NULL;
-    queue->lastSub = NULL;
-    queue->size = 0;
+    queue->msgList = NULL;
+    queue->subList = NULL;
+    queue->msgList->size = 0;
+    queue->subList->size = 0;
     return queue;
 }
 
@@ -22,68 +40,92 @@ void destroyQueue(TQueue **queue) {
     if (queue == NULL)  {
         return; //jesli juz nic nie ma, to nie ma czego zwolnic
     }
-    Message *currMsg = (*queue)->startMsg, *tempMsg;
-    subscriber* currSub = (*queue)->firstSub, *tempSub;
-    while (currMsg != NULL && currSub != NULL) {
+    Message *currMsg = (*queue)->msgList->head, *tempMsg;
+    Subscriber* currSub = (*queue)->subList->head, *tempSub;
+    while (currMsg != NULL) {
         
         tempMsg = currMsg;
-        tempSub = currSub;
         currMsg = currMsg->next;
-        currSub = currSub->next;
         free(tempMsg); //zwolnienie pamieci dla elementu
+    }
+    while (currSub != NULL) {
+        tempSub = currSub;
+        currSub = currSub->next;
         free(tempSub);
     }
-    pthread_mutex_destroy(&(*queue)->access_mutex);
+    pthread_mutex_destroy((*queue)->access_mutex);
     free(*queue);
     *queue = NULL;
 }
 
 void subscribe(TQueue *queue, pthread_t *thread) { //sprawdzanie na początku, czy już ten zasubkrybował, bo po co tworzy drugi raz 
 
-    subscriber* newSubscriber = (subscriber*)malloc(sizeof(subscriber));
-    if (newSubscriber = NULL) {
-        printf("Memory allocation failed!\n");
-        return;
+    pthread_mutex_lock(queue->access_mutex);
+    Subscriber *currSub = queue->subList->head;
+    while (currSub->threadID != thread) {
+        currSub = currSub->next;
     }
-    newSubscriber->threadID = thread;
-    newSubscriber->next = NULL;
-    newSubscriber->messages->head = NULL;
-    newSubscriber->messages->tail = NULL;
-    newSubscriber->messages->size = 0;
-    pthread_mutex_init(newSubscriber->empty, NULL);
-    
-    pthread_mutex_lock(&queue->access_mutex);
-    if(queue->firstSub == NULL) {
-        queue->firstSub = newSubscriber;
+    if (currSub != NULL) {
+        Subscriber* newSubscriber = (Subscriber*)malloc(sizeof(Subscriber));
+        if (newSubscriber = NULL) {
+            printf("Memory allocation failed!\n");
+            return;
+        }
+        newSubscriber->threadID = thread;
+        newSubscriber->next = NULL;
+        newSubscriber->startReading = NULL;
+        //cos z t kolejka
+        pthread_mutex_init(newSubscriber->empty, NULL);
+        pthread_mutex_unlock(queue->access_mutex);
+        if(queue->msgList == NULL) {
+            queue->subList->head = newSubscriber;
+            queue->subList->tail = newSubscriber;
+        }
+        else {
+            ((Subscriber*)queue->subList->tail)->next = newSubscriber; 
+            queue->subList->tail = newSubscriber;
+        }
     }
     else {
-        queue->lastSub->next = newSubscriber; 
-        queue->lastSub = newSubscriber;
+        pthread_mutex_unlock(queue->access_mutex);
+        printf("This thread is already subscribing the queue. Exiting the function...\n");
     }
-    pthread_mutex_unlock(&queue->access_mutex);
 }
 
 void unsubscribe(TQueue *queue, pthread_t *thread) { //dok usuwanie chyba trzeba zrobic
-    pthread_mutex_lock(&queue->access_mutex);
-    if (queue == NULL || queue->firstSub == NULL) {
-        pthread_mutex_unlock(&queue->access_mutex);
+    pthread_mutex_lock(queue->access_mutex);
+    if (queue == NULL || queue->msgList == NULL) {
+        pthread_mutex_unlock(queue->access_mutex);
         printf("exiting critical section remove\n");
         return 1;
     }
-    subscriber* curr = queue->firstSub;
-    subscriber* prev;
-    while (curr->next != NULL) {
-        if (curr->threadID == thread) {
-            pthread_mutex_destroy(&curr->empty);
-            prev->next = curr->next;
-            //usuwac jeszcze tego subskrybenta, wszystkie jego dane DODAĆ
-            printf("Unsubscribed!\n");
-            return 1;
-        }
-        prev = curr;
-        curr = curr->next;
+    if (((Subscriber*)queue->subList->head)->threadID == thread) {
+        queue->subList->head = ((Subscriber*)queue->subList->head)->next;
     }
-    pthread_mutex_unlock(&queue->access_mutex);
+    else {
+        Subscriber* prev = queue->subList->head;
+        Message* tempMsg;
+        while (prev->next != NULL) {
+            if (prev->next->threadID == thread) {
+                pthread_mutex_destroy(prev->next->empty);
+                tempMsg = prev->next->startReading;
+            //wiadomosci, ktore maja go na swojej liscie maja o jedno mniej do przeczytania
+                while (tempMsg != NULL) {
+                    tempMsg->readCount--;
+                    if (tempMsg->readCount == 0) {
+                        delMsg(queue, tempMsg);
+                    }
+                    tempMsg = tempMsg->next;
+                }
+                prev->next = prev->next->next;
+                pthread_mutex_unlock(queue->access_mutex);
+                printf("Unsubscribed!\n");
+                return;
+            }
+            prev = prev->next;
+        }
+    }
+    pthread_mutex_unlock(queue->access_mutex);
     printf("exiting critical section remove\n");
     printf("Subsriber not found!\n");
     return 0;
@@ -93,11 +135,11 @@ void addMsg(TQueue *queue, void *msg) {
     
     printf("in put\n");
     
-    pthread_mutex_lock(&queue->operation_mutex);
-    while (queue->size != queue->maxSize) { //block, obudzi się, jak bedzie usunieta wiadomosc
-        pthread_cond_wait(&queue->full, &queue->operation_mutex);
+    pthread_mutex_lock(queue->operation_mutex);
+    while (queue->msgList->size != queue->maxSize) { //block, obudzi się, jak bedzie usunieta wiadomosc
+        pthread_cond_wait(queue->full, queue->operation_mutex);
     }
-    pthread_mutex_unlock(&queue->operation_mutex);
+    pthread_mutex_unlock(queue->operation_mutex);
 
     Message* newMsg = (Message*)malloc(sizeof(Message)); //owning the memory it's pointing to
     if (newMsg == NULL) {
@@ -105,47 +147,40 @@ void addMsg(TQueue *queue, void *msg) {
         return;
     }
     printf("entering critical section put\n");
-    pthread_mutex_lock(&queue->access_mutex);
-    if (queue->subCount == 0) {
+    pthread_mutex_lock(queue->access_mutex);
+    if (queue->msgList->size == 0) {
         //abort mission
-        pthread_mutex_unlock(&queue->access_mutex);
+        pthread_mutex_unlock(queue->access_mutex);
         return;
     }
     newMsg->content = msg;
     newMsg->next = NULL;
-    newMsg->subscribers->head = queue->firstSub;
-    newMsg->subscribers->tail = queue->lastSub;
-    newMsg->subscribers->size = queue->subCount;
+    newMsg->readCount = queue->subList->size;
+    newMsg->firstSub = queue->subList->head;
+    start++;
 
     //przypadek kiedy nie ma zadnych wiadomosci w kolejce
-    if (queue->startMsg == NULL) {
-        queue->startMsg = newMsg;
-        queue->lastMsg = newMsg;
+    if (queue->msgList == NULL) {
+        queue->msgList->head = newMsg;
+        queue->msgList->tail = newMsg;
     }
     else { //dodajemy na koniec
-        queue->lastMsg->next = newMsg;
-        queue->lastMsg = newMsg;
+        ((Message*)queue->msgList->tail)->next = newMsg;
+        queue->msgList->tail = newMsg;
     }
-    queue->size++;
+    queue->maxSize++;
     //tutaj wszyscy subskrybenci mają jedną więcej wiadomość do przeczytania
-    subscriber* currSub = queue->firstSub;
+    Subscriber* currSub = queue->subList->head;
     while(currSub != NULL) {
         //watek nie mial zadnych wiadomosci do przeczytania
-        if (currSub->messages = NULL) {
-            currSub->messages->head = newMsg;
-            currSub->messages->tail = newMsg;
-            currSub->messages->size = 1;
+        if (currSub->startReading == NULL) {
+            currSub->startReading = newMsg;
         }
-        //watek mial juz jakies do przeczytania
-        else {
-            currSub->messages->tail->next = newMsg;
-            currSub->messages->tail = newMsg;
-            currSub->messages->size++;
-        }
+        //watek mial juz jakies do przeczytania, wiec nie to samo znajdzie, gdzie czytac
         currSub = currSub->next;
     }
 
-    pthread_mutex_unlock(&queue->access_mutex);
+    pthread_mutex_unlock(queue->access_mutex);
     printf("exiting critical section put\n");
 }
 
@@ -153,121 +188,112 @@ void getMsg(TQueue *queue, pthread_t *thread) {
     //watek moze czytac wiadomosci wyslane po subskrypcji
 
     printf("enters critical section get\n");
-    pthread_mutex_lock(&queue->access_mutex);
+    pthread_mutex_lock(queue->access_mutex);
 
     printf("in get\n");
-    subscriber* temp = queue->firstSub; //temp is a current thread
+    Subscriber* temp = queue->subList->head; //temp is a current thread
     while (temp->threadID != thread) {
         temp = temp->next;
     }
     if (temp == NULL) {
+        printf("This thread is not subsrcibing this queue\n");
+        pthread_mutex_unlock(queue->access_mutex);
         return NULL;
-        //watek nie subkrybuje
     }
-    else if (temp->messages == NULL) {
-        printf("the list for this sub is empty. Waiting...\n"); //musi byc blokujace uzyc zmiennych warunkowych
-        pthread_mutex_lock(&temp->list_empty);
-        pthread_cond_wait(&temp->empty, &temp->list_empty);
-        pthread_mutex_unlock(&temp->list_empty); 
+    else if (temp->startReading == NULL) {
+        printf("The list of messages for this subscriber is empty. Waiting...\n"); //musi byc blokujace uzyc zmiennych warunkowych
+        pthread_mutex_lock(temp->list_empty);
+        pthread_cond_wait(temp->empty, temp->list_empty);
+        pthread_mutex_unlock(temp->list_empty); 
     }
     //usuwanie pierwszej wiadomosci z listy "to read" w watku
-    Message* currMsg, *prevMsg;
-    temp->messages->head = temp->messages->head->next; //nie ma zwalniania pamieci, bo to ten wskaznik z głownej kolejki
-    temp->messages->size--;
-    queue->startMsg->read++;
+    temp->startReading->readCount--;
     //sprawdzanie czy jest odczytana wiadomosc przez wszystkich
-    if (currMsg->read == currMsg->subscribers->size) {
-        Message* tempMsg = queue->startMsg;
-        while (tempMsg != currMsg) {
-            prevMsg = tempMsg;
-            tempMsg = tempMsg->next;
-        }
-        if (tempMsg != NULL) {
-            prevMsg->next = tempMsg->next;
-        }   
-        queue->size--;
-        pthread_mutex_lock(&queue->operation_mutex); //budzenie jakiegos watku, ktore chce dodac wiadomosc
-        pthread_cond_signal(&queue->full);  
-        pthread_mutex_unlock(&queue->operation_mutex);
+    if (temp->startReading->readCount == 0) {
+        delMsg(queue, temp->startReading);
+        temp->startReading = temp->startReading->next;
     }
-    pthread_mutex_unlock(&queue->access_mutex);
+    pthread_mutex_unlock(queue->access_mutex);
     printf("exiting critical section get\n");
 }
 
 void getAvailable(TQueue *queue, pthread_t *thread) {
-    pthread_mutex_lock(&queue->access_mutex);
-    subscriber* tempSub = queue->firstSub;
+
+    int count = 0;
+
+    pthread_mutex_lock(queue->access_mutex);
+    Subscriber* tempSub = queue->subList;
     while (tempSub->threadID != thread) {
         tempSub = tempSub->next;
     }
     if (tempSub == NULL) {
         printf("This thread doesn't subscribe this queue.\n");
-        return 1;
+        return;
     }
-    printf("The number of available messages for this thread is: %d\n", tempSub->messages->size);
-    pthread_mutex_unlock(&queue->access_mutex);
+    else {
+        Message* tempMsg = tempSub->startReading;
+        while (tempMsg != NULL) {
+            count++;
+            tempMsg = tempMsg->next;
+        }
+    }
+    printf("The number of available messages for this thread is: %d\n", count);
+    pthread_mutex_unlock(queue->access_mutex);
 }
 
 void removeMsg(TQueue *queue, void *msg) { 
     // bezwarunkowo usuwa wiadomosc
     printf("entering critical section remove\n");
-    pthread_mutex_lock(&queue->access_mutex);
+    pthread_mutex_lock(queue->access_mutex);
     printf("in remove\n");
-    if (queue == NULL || queue->startMsg == NULL) {
-        pthread_mutex_unlock(&queue->access_mutex);
+    if (queue == NULL || queue->msgList == NULL) {
+        pthread_mutex_unlock(queue->access_mutex);
         printf("exiting critical section remove\n");
-        return 1;
+        return;
     }
-    Message* currMsg = queue->startMsg, *prevMsg, *tempMsg, *prevTempMsg;
-    while (currMsg->next != NULL) {
-        if (currMsg->content == msg) {
-            //usun te wiadomosc na wszystkich subskrybentach
-            subscriber* tempSub = queue->firstSub; 
-            while (tempSub != NULL) {
-                tempMsg = tempSub->messages->head;
-                while (msg != tempMsg->content) {
-                    prevTempMsg = tempMsg;
-                    tempMsg = tempMsg->next;
-                }
-                if (tempMsg != NULL) {
-                    prevTempMsg->next = tempMsg->next; 
-                }
-            }
-            prevMsg->next = currMsg->next;
-            printf("Element removed!\n");
-            queue->size--;
+    if (((Message *)queue->msgList->head)->content == msg) {
+        queue->msgList->head = ((Message *)queue->msgList->head)->next;
+        pthread_mutex_lock(queue->operation_mutex);
+        pthread_cond_signal(queue->full);  
+        pthread_mutex_unlock(queue->operation_mutex);
+        pthread_mutex_unlock(queue->access_mutex);
+    }
+    else {
+        Message* prevMsg = queue->msgList->head;
+        while (prevMsg->next != NULL) {
+            if (prevMsg->next->content == msg) {
+                prevMsg->next = prevMsg->next->next;
+                printf("Element removed!\n");
+                queue->maxSize--;
             //budzenie watku ktory chce dodac wiadomosc
-            pthread_mutex_lock(&queue->operation_mutex);
-            pthread_cond_signal(&queue->full);  
-            pthread_mutex_unlock(&queue->operation_mutex);
-            pthread_mutex_unlock(&queue->access_mutex);
-            return;
+                pthread_mutex_lock(queue->operation_mutex);
+                pthread_cond_signal(queue->full);  
+                pthread_mutex_unlock(queue->operation_mutex);
+                pthread_mutex_unlock(queue->access_mutex);
+                return;
+            }
+            prevMsg = prevMsg->next;
         }
-        prevMsg = currMsg;
-        currMsg = currMsg->next;
     }
     printf("Element not found!\n");
-    pthread_mutex_unlock(&queue->access_mutex);
+    pthread_mutex_unlock(queue->access_mutex);
     printf("exiting critical section remove\n");
-    return 1;
+    return;
 }
 
-void setSize(TQueue *queue, int *newSize) { //usuwanie wiadomosci dok
+void setSize(TQueue *queue, int *newSize) { 
     printf("entering critical section maxSize\n");
-    pthread_mutex_lock(&queue->access_mutex);
+    pthread_mutex_lock(queue->access_mutex);
     printf("in maxSize\n");
-    if (newSize < queue->size) {
-        Message* curr = queue->startMsg;
-        Message* prev;
-        //usuwanie wiadomosci dok
-        for (int i = 0; i < queue->size - *newSize; i++) {
-            //prev->next = curr->next;
+    if (*newSize < queue->maxSize) { //kiedy ma byc mniejsze
+        Message* curr = queue->msgList->head;
+        //usuwanie wiadomosci 
+        for (int i = 0; i < queue->maxSize - *newSize; i++) {
             curr = curr->next;
         }
-        queue->startMsg = curr;
-        queue->size = *newSize;
+        queue->msgList->head = curr;
     }
     queue->maxSize = *newSize;
-    pthread_mutex_unlock(&queue->access_mutex);
+    pthread_mutex_unlock(queue->access_mutex);
     printf("exiting critical section maxSize\n");
 }
