@@ -12,8 +12,16 @@ void* thread_handler(void* arg) {
     // printf("size %d\n", queue->subList->size);
     addMsg(queue, msg);
     printf("size %d\n", queue->msgList->size);
-    //printf("first message: %s\n", (char*)((Subscriber*)queue->subList->head)->startReading->content);
-    unsubscribe(queue, ptrID);
+    printf("first message: %s\n", (char*)((Subscriber*)queue->subList->head)->startReading->content);
+    // unsubscribe(queue, ptrID);
+    // printf("size %d\n", queue->subList->size);
+    addMsg(queue, msg);
+    printf("size %d\n", queue->msgList->size);
+    printf("get avail %d\n", getAvailable(queue, ptrID));
+    void* received = getMsg(queue, ptrID);
+    printf("msg: %s\n", (char*)((Message*)received)->content);
+    printf("size %d\n", queue->msgList->size);
+    printf("get available %d\n", getAvailable(queue, ptrID));
     //printf("%s\n", (char*)((Message*)queue->msgList->head)->content);
     //retyrb stg
 }

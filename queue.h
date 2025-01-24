@@ -63,7 +63,7 @@ void addMsg(TQueue *queue, void *msg);
 
 void* getMsg(TQueue *queue, pthread_t *thread);
 
-void getAvailable(TQueue *queue, pthread_t *thread);
+int getAvailable(TQueue *queue, pthread_t *thread);
 
 void removeMsg(TQueue *queue, void *msg);
 
