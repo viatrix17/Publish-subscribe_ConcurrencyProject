@@ -2,11 +2,11 @@
 
 void* thread_handler(void* arg) {
 
-    int size = 6;
-    int* ptr = &size;
     char* msg = "first";
     char* msg2 = "second";
     char* msg3 = "GLORIOUS EVOLUTION";
+    char* msg4 = "hihi";
+    char* msg5 = "half horse";
     TQueue* queue = (TQueue*)arg;
     pthread_t threadID = pthread_self();
     pthread_t *ptrID = &threadID;
@@ -14,7 +14,9 @@ void* thread_handler(void* arg) {
     addMsg(queue, msg);
     addMsg(queue, msg2);
     addMsg(queue, msg3);
-    printf("skonczylo dodawanie\n");
+    addMsg(queue, msg4);
+    addMsg(queue, msg5);
+    //printf("skonczylo dodawanie\n");
     //addMsg(queue, msg3);
 
     return NULL;
@@ -22,10 +24,14 @@ void* thread_handler(void* arg) {
 
 void* thread2_handler(void* arg) {
 
+    int size = 6;
+    int* ptr = &size;
     TQueue* queue = (TQueue*)arg;
     pthread_t threadID = pthread_self();
     pthread_t *ptrID = &threadID;
     subscribe(queue, ptrID);
+    sleep(5);
+    setSize(queue, ptr);
     // printf("Available for thread 2: %d\n", getAvailable(queue, ptrID));
     // void* received = getMsg(queue, ptrID);
     // printf("msg: %s\n", (char*)((Message*)received)->content);
@@ -34,12 +40,12 @@ void* thread2_handler(void* arg) {
     // printf("msg: %s\n", (char*)((Message*)received)->content);
 
     // testowanie przekroczenia limitu kolejki i odczytania przez wszystkie watki i usuniecia
-    printf("Available for thread 2: %d\n", getAvailable(queue, ptrID));
-    sleep(6);
-    printf("Available for thread 2: %d\n", getAvailable(queue, ptrID));
-    void* received = getMsg(queue, ptrID);
-    printf("msg: %s\n", (char*)((Message*)received)->content);
-    printf("Available for thread 2: %d\n", getAvailable(queue, ptrID));
+    // printf("Available for thread 2: %d\n", getAvailable(queue, ptrID));
+    // sleep(6);
+    // printf("Available for thread 2: %d\n", getAvailable(queue, ptrID));
+    // void* received = getMsg(queue, ptrID);
+    // printf("msg: %s\n", (char*)((Message*)received)->content);
+    // printf("Available for thread 2: %d\n", getAvailable(queue, ptrID));
     return NULL;
 }
 

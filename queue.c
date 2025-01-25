@@ -13,7 +13,7 @@ void delMsg(TQueue *queue, Message *msg) {
         }
         queue->msgList->size--;
         pthread_mutex_lock(queue->operation_mutex); //budzenie jakiegos watku, ktore chce dodac wiadomosc bo ta jest usunieta
-        pthread_cond_signal(queue->full);  
+        pthread_cond_signal(queue->block_operation);  
         pthread_mutex_unlock(queue->operation_mutex);
 }
 
@@ -35,8 +35,8 @@ TQueue* createQueue(int *size) {
         printf("Memory allocation failed.\n");
         return NULL;
     }
-    queue->full = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
-    if (queue->full == NULL) { 
+    queue->block_operation = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
+    if (queue->block_operation == NULL) { 
         printf("Memory allocation failed.\n");
         return NULL;
     }
@@ -55,7 +55,7 @@ TQueue* createQueue(int *size) {
     //printf("Memory allocated correctly.\n");
     pthread_mutex_init(queue->access_mutex, NULL);
     pthread_mutex_init(queue->operation_mutex, NULL);
-    pthread_cond_init(queue->full, NULL);
+    pthread_cond_init(queue->block_operation, NULL);
     //printf("Mutexes initlized correctly.\n");
     queue->maxSize = *size;
     
@@ -98,9 +98,9 @@ void destroyQueue(TQueue **queue) {
         pthread_mutex_destroy((*queue)->operation_mutex);  
         free((*queue)->operation_mutex);  
     }
-    if ((*queue)->full != NULL) {
-        pthread_cond_destroy((*queue)->full);  
-        free((*queue)->full);  
+    if ((*queue)->block_operation != NULL) {
+        pthread_cond_destroy((*queue)->block_operation);  
+        free((*queue)->block_operation);  
     }
     free(*queue);
     *queue = NULL;
@@ -124,22 +124,9 @@ void subscribe(TQueue *queue, pthread_t *thread) {
             printf("Memory allocation failed!\n");
             return;
         }
-        newSubscriber->list_empty = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
-        if (newSubscriber->list_empty == NULL) { 
-            printf("Memory allocation failed.\n");
-            return;
-        }
-        newSubscriber->empty = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
-        if (newSubscriber->empty == NULL) { 
-            printf("Memory allocation failed.\n");
-            return;
-        }
         newSubscriber->threadID = thread;
         newSubscriber->next = NULL;
         newSubscriber->startReading = NULL;
-        
-        pthread_mutex_init(newSubscriber->list_empty, NULL);
-        pthread_cond_init(newSubscriber->empty, NULL);
         
         if(queue->msgList->head == NULL) {
             queue->subList->head = newSubscriber;
@@ -190,7 +177,6 @@ void unsubscribe(TQueue *queue, pthread_t *thread) {
         Subscriber* prev = queue->subList->head;
         while (prev->next != NULL) {
             if (prev->next->threadID == thread) {
-                pthread_mutex_destroy(prev->next->list_empty);
                 tempMsg = prev->next->startReading;
                 //wiadomosci, ktore maja go na swojej liscie maja o jedno mniej do przeczytania
                 while (tempMsg != NULL) {
@@ -222,7 +208,7 @@ void addMsg(TQueue *queue, void *msg) {
     while (queue->msgList->size == queue->maxSize) { //block, obudzi się, jak bedzie usunieta wiadomosc
         printf("Queue size exceeded. Waiting...\n");
         pthread_mutex_unlock(queue->access_mutex);
-        pthread_cond_wait(queue->full, queue->operation_mutex);
+        pthread_cond_wait(queue->block_operation, queue->operation_mutex);
         //po wybudzeniu sprawdza i ewentualnie blokuje znowu; jak wyjdzie z petli to juz ma locked czyli tak jak gdyby nie bylo tego sprawdzania warunku
         pthread_mutex_lock(queue->access_mutex);
     }
@@ -235,7 +221,7 @@ void addMsg(TQueue *queue, void *msg) {
     }
     //printf("entering critical section addMsg\n");
     if (queue->subList->size == 0) {
-        printf("No active subscribers - exiting funciton...\n");
+        printf("No active subscribers - exiting function...\n");
         pthread_mutex_unlock(queue->access_mutex);
         return;
     }
@@ -258,20 +244,18 @@ void addMsg(TQueue *queue, void *msg) {
     Subscriber* currSub = queue->subList->head;
     while(currSub != NULL) {
         //watek nie mial zadnych wiadomosci do przeczytania
-        if (currSub->startReading == NULL) { //budzi się wątek który czeka na zmiennej warunkowej empty
+        if (currSub->startReading == NULL) { 
             currSub->startReading = newMsg;
-            pthread_mutex_lock(currSub->list_empty); //budzenie jakiegos watku, ktore chce dodac wiadomosc bo ta jest usunieta
-            pthread_cond_signal(currSub->empty);  
-            pthread_mutex_unlock(currSub->list_empty);
         }
-        //watek mial juz jakies do przeczytania, wiec nie to samo znajdzie, gdzie czytac
+        //watek mial juz jakies do przeczytania, to samo znajdzie, gdzie czytac
         currSub = currSub->next;
     }
+    pthread_mutex_lock(queue->operation_mutex);
+    pthread_cond_broadcast(queue->block_operation);  //broadcast na wszystkie, bo wszystkie watki na wiadomosc czekajace sie obudzą, a te zablokowane na przepełnieniu ewentualnie znowu wejdą do pętli
+    pthread_mutex_unlock(queue->operation_mutex);
 
     pthread_mutex_unlock(queue->access_mutex);
     printf("Message added\n");
-
-    //printf("exiting critical section put\n");
 }
 
 void* getMsg(TQueue *queue, pthread_t *thread) { 
@@ -290,14 +274,14 @@ void* getMsg(TQueue *queue, pthread_t *thread) {
         return NULL;
     }
     //tu jest locked access mutex na tym etapie
-    pthread_mutex_lock(temp->list_empty);
+    pthread_mutex_lock(queue->operation_mutex);
     while(temp->startReading == NULL) {
         printf("The list of messages for this subscriber is empty. Waiting...\n"); //musi byc blokujace uzyc zmiennych warunkowych
         pthread_mutex_unlock(queue->access_mutex); //czeka a inne mogą sobie robic co chcą
-        pthread_cond_wait(temp->empty, temp->list_empty);
+        pthread_cond_wait(queue->block_operation, queue->operation_mutex);
         pthread_mutex_lock(queue->access_mutex); //jak wyjdzie z petli to bedzie normalnie robic
     }
-    pthread_mutex_unlock(temp->list_empty); 
+    pthread_mutex_unlock(queue->operation_mutex); 
     Message* receivedMsg = temp->startReading;
     //usuwanie pierwszej wiadomosci z listy "to read" w watku
     temp->startReading->readCount--;
@@ -377,9 +361,9 @@ void removeMsg(TQueue *queue, void *msg) { //zakładam, że żadna wiadomosc nie
         }
         tempSub = tempSub->next;
     }
-    //odblokowac zablokowane przez full watki
+    //odblokowac zablokowane przez cond var wątki, ale tylko pojedyncze, bo pojedyncze miejsce się zwalnia
     pthread_mutex_lock(queue->operation_mutex);
-    pthread_cond_signal(queue->full);  
+    pthread_cond_signal(queue->block_operation);  
     pthread_mutex_unlock(queue->operation_mutex);
     pthread_mutex_unlock(queue->access_mutex);
     printf("Element removed successfully!\n");
@@ -411,6 +395,9 @@ void setSize(TQueue *queue, int *newSize) {
         }
         queue->msgList->head = curr;
     }
+    pthread_mutex_lock(queue->operation_mutex);
+    pthread_cond_broadcast(queue->block_operation);
+    pthread_mutex_unlock(queue->operation_mutex);
     queue->maxSize = *newSize;
     printf("New size has been set successfully.\n");
     pthread_mutex_unlock(queue->access_mutex);

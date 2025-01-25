@@ -31,9 +31,6 @@ typedef struct Subscriber {
     pthread_t *threadID;
     struct Subscriber* next;
     Message *startReading;
-    pthread_mutex_t *list_empty; //kazdy subskrybent ma zmienną warunkową i ona jest niezależna od innych subskrybentów, inni subskrybenci mogą się zablokować regardless
-    pthread_cond_t *empty;
-    //subskrybent nie moze dwa razy tej samej kolejki zasubskrybowac, trzeba to sprawdzać DODAC
 }Subscriber;
 
 struct TQueue {
@@ -44,7 +41,7 @@ struct TQueue {
     pthread_mutex_t *access_mutex;
 
     pthread_mutex_t *operation_mutex;
-    pthread_cond_t *full;
+    pthread_cond_t *block_operation;
 };
 typedef struct TQueue TQueue;
 
