@@ -217,9 +217,14 @@ void unsubscribe(TQueue *queue, pthread_t *thread) {
 
 void addMsg(TQueue *queue, void *msg) {
 
+    pthread_mutex_lock(queue->access_mutex);
     pthread_mutex_lock(queue->operation_mutex);
     while (queue->msgList->size == queue->maxSize) { //block, obudzi się, jak bedzie usunieta wiadomosc
+        printf("Queue size exceeded. Waiting...\n");
+        pthread_mutex_unlock(queue->access_mutex);
         pthread_cond_wait(queue->full, queue->operation_mutex);
+        //po wybudzeniu sprawdza i ewentualnie blokuje znowu; jak wyjdzie z petli to juz ma locked czyli tak jak gdyby nie bylo tego sprawdzania warunku
+        pthread_mutex_lock(queue->access_mutex);
     }
     pthread_mutex_unlock(queue->operation_mutex);
 
@@ -229,7 +234,6 @@ void addMsg(TQueue *queue, void *msg) {
         return;
     }
     //printf("entering critical section addMsg\n");
-    pthread_mutex_lock(queue->access_mutex);
     if (queue->subList->size == 0) {
         printf("No active subscribers - exiting funciton...\n");
         pthread_mutex_unlock(queue->access_mutex);
@@ -254,8 +258,11 @@ void addMsg(TQueue *queue, void *msg) {
     Subscriber* currSub = queue->subList->head;
     while(currSub != NULL) {
         //watek nie mial zadnych wiadomosci do przeczytania
-        if (currSub->startReading == NULL) {
+        if (currSub->startReading == NULL) { //budzi się wątek który czeka na zmiennej warunkowej empty
             currSub->startReading = newMsg;
+            pthread_mutex_lock(currSub->list_empty); //budzenie jakiegos watku, ktore chce dodac wiadomosc bo ta jest usunieta
+            pthread_cond_signal(currSub->empty);  
+            pthread_mutex_unlock(currSub->list_empty);
         }
         //watek mial juz jakies do przeczytania, wiec nie to samo znajdzie, gdzie czytac
         currSub = currSub->next;
@@ -282,12 +289,15 @@ void* getMsg(TQueue *queue, pthread_t *thread) {
         pthread_mutex_unlock(queue->access_mutex);
         return NULL;
     }
-    else if (temp->startReading == NULL) {
+    //tu jest locked access mutex na tym etapie
+    pthread_mutex_lock(temp->list_empty);
+    while(temp->startReading == NULL) {
         printf("The list of messages for this subscriber is empty. Waiting...\n"); //musi byc blokujace uzyc zmiennych warunkowych
-        pthread_mutex_lock(temp->list_empty);
+        pthread_mutex_unlock(queue->access_mutex); //czeka a inne mogą sobie robic co chcą
         pthread_cond_wait(temp->empty, temp->list_empty);
-        pthread_mutex_unlock(temp->list_empty); 
+        pthread_mutex_lock(queue->access_mutex); //jak wyjdzie z petli to bedzie normalnie robic
     }
+    pthread_mutex_unlock(temp->list_empty); 
     Message* receivedMsg = temp->startReading;
     //usuwanie pierwszej wiadomosci z listy "to read" w watku
     temp->startReading->readCount--;
