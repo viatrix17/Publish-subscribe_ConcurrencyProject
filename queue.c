@@ -72,7 +72,9 @@ TQueue* createQueue(int *size) {
 }
 
 void destroyQueue(TQueue **queue) {
-    if (queue == NULL)  {
+    printf("Destroying queue...\n");
+    if (*queue == NULL)  {
+        printf("Nothing to destroy.\n");
         return; //jesli juz nic nie ma, to nie ma czego zwolnic
     }
     Message *currMsg = (*queue)->msgList->head, *tempMsg;
@@ -102,6 +104,7 @@ void destroyQueue(TQueue **queue) {
     }
     free(*queue);
     *queue = NULL;
+    printf("Destroyed successfully\n");
 }
 
 void subscribe(TQueue *queue, pthread_t *thread) { 
@@ -109,7 +112,6 @@ void subscribe(TQueue *queue, pthread_t *thread) {
     printf("Subscribing the queue...\n");
     pthread_mutex_lock(queue->access_mutex);
     Subscriber *currSub = queue->subList->head;
-    printf("ok\n");
     if (currSub != NULL) {
         while (currSub->threadID != thread) {
             currSub = currSub->next;
@@ -149,6 +151,7 @@ void subscribe(TQueue *queue, pthread_t *thread) {
         }
         queue->subList->size++;
         pthread_mutex_unlock(queue->access_mutex);
+        printf("Subscribed!\n");
     }
     else {
         pthread_mutex_unlock(queue->access_mutex);
@@ -239,12 +242,10 @@ void addMsg(TQueue *queue, void *msg) {
 
     //przypadek kiedy nie ma zadnych wiadomosci w kolejce
     if (queue->msgList->head == NULL) {
-        printf("first el\n");
         queue->msgList->head = newMsg;
         queue->msgList->tail = newMsg;
     }
     else { //dodajemy na koniec
-        printf("last el\n");
         ((Message*)queue->msgList->tail)->next = newMsg;
         queue->msgList->tail = newMsg;
     }
@@ -286,9 +287,7 @@ void* getMsg(TQueue *queue, pthread_t *thread) {
         pthread_mutex_lock(temp->list_empty);
         pthread_cond_wait(temp->empty, temp->list_empty);
         pthread_mutex_unlock(temp->list_empty); 
-        printf("check.\n");
     }
-    printf("check.\n");
     Message* receivedMsg = temp->startReading;
     //usuwanie pierwszej wiadomosci z listy "to read" w watku
     temp->startReading->readCount--;
@@ -378,18 +377,31 @@ void removeMsg(TQueue *queue, void *msg) { //zakładam, że żadna wiadomosc nie
 }
 
 void setSize(TQueue *queue, int *newSize) { 
-    printf("entering critical section maxSize\n");
+    
     pthread_mutex_lock(queue->access_mutex);
-    printf("in maxSize\n");
-    if (*newSize < queue->maxSize) { //kiedy ma byc mniejsze
+    printf("Setting new size...\n");
+    int currSize = queue->msgList->size;
+    if (*newSize < currSize) { //kiedy ma byc mniejsze
+        Subscriber* tempSub;
+        printf("New size is smaller than the current queue size\n");
         Message* curr = queue->msgList->head;
         //usuwanie wiadomosci 
-        for (int i = 0; i < queue->maxSize - *newSize; i++) {
+        for (int i = 0; i < currSize - *newSize; i++) {
+            //usuwanie u subskrybentow
+            tempSub = queue->subList->head;
+            while (tempSub != NULL) {
+                if (tempSub->startReading->content == curr->content) {
+                    tempSub->startReading = tempSub->startReading->next; //jak jest na poczatku, to przesunac heada na nastepna
+                }
+                tempSub = tempSub->next;
+            }
+
             curr = curr->next;
+            queue->msgList->size--;
         }
         queue->msgList->head = curr;
     }
     queue->maxSize = *newSize;
+    printf("New size has been set successfully.\n");
     pthread_mutex_unlock(queue->access_mutex);
-    printf("exiting critical section maxSize\n");
 }
