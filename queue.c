@@ -127,11 +127,17 @@ void subscribe(TQueue *queue, pthread_t *thread) {
             printf("Memory allocation failed.\n");
             return;
         }
+        newSubscriber->empty = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
+        if (newSubscriber->empty == NULL) { 
+            printf("Memory allocation failed.\n");
+            return;
+        }
         newSubscriber->threadID = thread;
         newSubscriber->next = NULL;
         newSubscriber->startReading = NULL;
         
         pthread_mutex_init(newSubscriber->list_empty, NULL);
+        pthread_cond_init(newSubscriber->empty, NULL);
         
         if(queue->msgList->head == NULL) {
             queue->subList->head = newSubscriber;
@@ -280,7 +286,9 @@ void* getMsg(TQueue *queue, pthread_t *thread) {
         pthread_mutex_lock(temp->list_empty);
         pthread_cond_wait(temp->empty, temp->list_empty);
         pthread_mutex_unlock(temp->list_empty); 
+        printf("check.\n");
     }
+    printf("check.\n");
     Message* receivedMsg = temp->startReading;
     //usuwanie pierwszej wiadomosci z listy "to read" w watku
     temp->startReading->readCount--;

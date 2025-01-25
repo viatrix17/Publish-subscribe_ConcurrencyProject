@@ -34,7 +34,9 @@ void* thread_handler(void* arg) {
     printf("last message: %s\n", (char*)((Message*)queue->msgList->tail)->content);
     printf("get available %d\n", getAvailable(queue, ptrID));
     printf("sub first message: %s\n", (char*)((Subscriber*)queue->subList->head)->startReading->content);
-
+    void* received = getMsg(queue, ptrID);
+    printf("msg: %s\n", (char*)((Message*)received)->content);
+    received = getMsg(queue, ptrID);
     //printf("%s\n", (char*)((Message*)queue->msgList->head)->content);
     return NULL;
 }
