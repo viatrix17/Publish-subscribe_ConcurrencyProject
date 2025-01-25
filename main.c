@@ -1,29 +1,42 @@
 #include "queue.h"
 
 void* thread_handler(void* arg) {
-    int i;
-    char* msg = "oki";
+
+    char* msg = "hvhvbbv";
+    char* msg2 = "hihi";
     TQueue* queue = (TQueue*)arg;
     pthread_t threadID = pthread_self();
     pthread_t *ptrID = &threadID;
     subscribe(queue, ptrID);
-    printf("size %d\n", queue->subList->size);
+    printf("sub size %d\n", queue->subList->size);
     // subscribe(queue, ptrID);
     // printf("size %d\n", queue->subList->size);
     addMsg(queue, msg);
-    printf("size %d\n", queue->msgList->size);
-    printf("first message: %s\n", (char*)((Subscriber*)queue->subList->head)->startReading->content);
+    printf("fiest message: %s\n", (char*)((Message*)queue->msgList->head)->content);
+    printf("last message: %s\n", (char*)((Message*)queue->msgList->tail)->content);
+    printf("msg size %d\n", queue->msgList->size);
     // unsubscribe(queue, ptrID);
     // printf("size %d\n", queue->subList->size);
-    addMsg(queue, msg);
+    addMsg(queue, msg2);
+    printf("fiest message: %s\n", (char*)((Message*)queue->msgList->head)->content);
+    printf("last message: %s\n", (char*)((Message*)queue->msgList->tail)->content);
+
+    printf("msg size %d\n", queue->msgList->size);
+    // printf("size %d\n", queue->msgList->size);
+     printf("get avail %d\n", getAvailable(queue, ptrID));
+    // void* received = getMsg(queue, ptrID);
+    // printf("msg: %s\n", (char*)((Message*)received)->content);
+    // printf("size %d\n", queue->msgList->size);
+    printf("sub first message: %s\n", (char*)((Subscriber*)queue->subList->head)->startReading->content);
+    removeMsg(queue, msg);
     printf("size %d\n", queue->msgList->size);
-    printf("get avail %d\n", getAvailable(queue, ptrID));
-    void* received = getMsg(queue, ptrID);
-    printf("msg: %s\n", (char*)((Message*)received)->content);
-    printf("size %d\n", queue->msgList->size);
+    printf("fiest message: %s\n", (char*)((Message*)queue->msgList->head)->content);
+    printf("last message: %s\n", (char*)((Message*)queue->msgList->tail)->content);
     printf("get available %d\n", getAvailable(queue, ptrID));
+    printf("sub first message: %s\n", (char*)((Subscriber*)queue->subList->head)->startReading->content);
+
     //printf("%s\n", (char*)((Message*)queue->msgList->head)->content);
-    //retyrb stg
+    return NULL;
 }
 
 int main() {

@@ -233,10 +233,12 @@ void addMsg(TQueue *queue, void *msg) {
 
     //przypadek kiedy nie ma zadnych wiadomosci w kolejce
     if (queue->msgList->head == NULL) {
+        printf("first el\n");
         queue->msgList->head = newMsg;
         queue->msgList->tail = newMsg;
     }
     else { //dodajemy na koniec
+        printf("last el\n");
         ((Message*)queue->msgList->tail)->next = newMsg;
         queue->msgList->tail = newMsg;
     }
@@ -316,43 +318,54 @@ int getAvailable(TQueue *queue, pthread_t *thread) {
     return count;
 }
 
-void removeMsg(TQueue *queue, void *msg) { 
+void removeMsg(TQueue *queue, void *msg) { //zakładam, że żadna wiadomosc nie pojawia się dwa razy!!!
     // bezwarunkowo usuwa wiadomosc
-    printf("entering critical section remove\n");
+
+    //printf("entering critical section remove\n");
     pthread_mutex_lock(queue->access_mutex);
-    printf("in remove\n");
-    if (queue == NULL || queue->msgList == NULL) {
+
+    if (queue == NULL || queue->msgList->head == NULL) {
         pthread_mutex_unlock(queue->access_mutex);
-        printf("exiting critical section remove\n");
+        printf("Element not found!\n");
         return;
     }
-    if (((Message *)queue->msgList->head)->content == msg) {
-        queue->msgList->head = ((Message *)queue->msgList->head)->next;
-        pthread_mutex_lock(queue->operation_mutex);
-        pthread_cond_signal(queue->full);  
-        pthread_mutex_unlock(queue->operation_mutex);
-        pthread_mutex_unlock(queue->access_mutex);
+
+    if (((Message *)queue->msgList->head)->content == msg) { //jesli ta wiaodmocs jest pierwsza na liscie, to przesunac heada
+        printf("first\n");
+        queue->msgList->head = ((Message *)queue->msgList->head)->next; 
+        queue->msgList->size--;
     }
-    else {
+    else { //jesli ta wiadomosc jest pozniej, to ją znalezc i usunac
         Message* prevMsg = queue->msgList->head;
         while (prevMsg->next != NULL) {
             if (prevMsg->next->content == msg) {
                 prevMsg->next = prevMsg->next->next;
                 printf("Element removed!\n");
                 queue->maxSize--;
-               //budzenie watku ktory chce dodac wiadomosc
-                pthread_mutex_lock(queue->operation_mutex);
-                pthread_cond_signal(queue->full);  
-                pthread_mutex_unlock(queue->operation_mutex);
-                pthread_mutex_unlock(queue->access_mutex);
-                return;
+                break;  
             }
             prevMsg = prevMsg->next;
         }
+        if (prevMsg->next == NULL) { //jezeli nie znalazło
+            printf("Element not found!\n");
+            pthread_mutex_unlock(queue->access_mutex);
+            return;
+        }
     }
-    printf("Element not found!\n");
+    //sprawdzic we wszystkich subskrybentach, czy jest na poczatku
+    Subscriber* tempSub = queue->subList->head;
+    while (tempSub != NULL) {
+        if (tempSub->startReading->content == msg) {
+            tempSub->startReading = tempSub->startReading->next; //jak jest na poczatku, to przesunac heada na nastepna
+        }
+        tempSub = tempSub->next;
+    }
+    //odblokowac zablokowane przez full watki
+    pthread_mutex_lock(queue->operation_mutex);
+    pthread_cond_signal(queue->full);  
+    pthread_mutex_unlock(queue->operation_mutex);
     pthread_mutex_unlock(queue->access_mutex);
-    printf("exiting critical section remove\n");
+    printf("Element removed successfully!\n");
     return;
 }
 
