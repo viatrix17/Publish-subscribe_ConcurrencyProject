@@ -61,9 +61,11 @@ Projekt jest dostępny w repozytorium pod adresem:
 
 
 
-# Algorytm / dodatkowy opis
+# Opis
 
-DOK OPIS
+Program implementuje system Publish-subscribe opisany w skrypcie.
+
+
 
 Sprawdzone zostały sytuacje skrajne:
 * dodanie wiadomości do pustej kolejki -> natychmiastowe usunięcie wiadomości
@@ -89,9 +91,7 @@ Odporność na *głodzenie*:
 
 # Przykład użycia
 
-DOK PRYZKŁAD UŻYCIA
-Tu przedstaw przykładowe uruchomienie programu zawierające argumenty wywołania,
-(ewentualne) dane wejściowe oraz wyniki produkowane przez program.
+![Przykład użycia programu](console_output.png){width=70%}
 
 -------------------------------------------------------------------------------
 

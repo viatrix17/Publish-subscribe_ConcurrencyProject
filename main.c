@@ -5,7 +5,7 @@ void* thread_handler(void* arg) {
     char* msg = "one";
     char* msg2 = "two";
     char* msg3 = "three";
-    char* msg4 = "four";
+    //char* msg4 = "four";
     char* msg5 = "five";
     TQueue* queue = (TQueue*)arg;
     pthread_t threadID = pthread_self();
@@ -26,7 +26,7 @@ void* thread2_handler(void* arg) {
 
     int size = 8;
     int* ptr = &size;
-    char* msg = "six";
+    //char* msg = "six";
 
     TQueue* queue = (TQueue*)arg;
     pthread_t threadID = pthread_self();
