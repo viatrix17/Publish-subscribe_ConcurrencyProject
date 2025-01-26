@@ -56,7 +56,8 @@ Projekt jest dostępny w repozytorium pod adresem:
     
 # Funkcje
 
-1. `void delMsg(TQueue *queue, Message *msg)` -- usuwanie wiadomości i budzenie wątków, czekających na zwolnienie miejsca w kolejce.
+1. `void delMsg(TQueue *queue, Message* msg)` -- usuwanie wiadomości i budzenie wątków, czekających na zwolnienie miejsca w kolejce.
+2. `void checkMsg(TQueue* queue, Message* msg)` -- aktualizacja zmiennej `readCount` dla wszystkich wiadomość, które miały być przeczytane przez wątek, który wywołał funkcję `unsubscribe()`i sprawdzanie, czy można tą wiadomość usunąć
 
 
 

@@ -21,8 +21,8 @@ typedef struct Subscriber Subscriber;
 typedef struct Message {
     void* content;
     struct Message* next;
-    int readCount; //ma zejsc do zera
-    struct Subscriber *firstSub; //wskaznik na pierwszego subskrybenta ktory to odczyta
+    int readCount; 
+    struct Subscriber *firstSub; 
 }Message;
 
 typedef struct Subscriber {
@@ -35,9 +35,9 @@ typedef struct TQueue {
     int maxSize;
     List *msgList;
     List *subList;
-
+    //mutex for read/write operations synchronization
     pthread_mutex_t *access_mutex;
-
+    //mutex and conditional variable for blocking behaviour of addMsg() and getMsg()
     pthread_mutex_t *operation_mutex;
     pthread_cond_t *block_operation;
 }TQueue;
