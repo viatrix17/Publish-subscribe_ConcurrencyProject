@@ -3,18 +3,18 @@
 void delMsg(TQueue *queue, Message *msg) {
     if (queue->msgList->head == msg) {
             queue->msgList->head = ((Message*)queue->msgList->head)->next; //zmienia na liscie
+    }
+    else { //usuwanie wiadomosci
+        Message *prevMsg = queue->msgList->head;
+        while (prevMsg->next != msg) {
+            prevMsg = prevMsg->next;
         }
-        else { //usuwanie wiadomosci
-            Message *prevMsg = queue->msgList->head;
-            while (prevMsg->next != msg) {
-                prevMsg = prevMsg->next;
-            }
-            prevMsg->next = prevMsg->next->next;
-        }
-        queue->msgList->size--;
-        pthread_mutex_lock(queue->operation_mutex); //budzenie jakiegos watku, ktore chce dodac wiadomosc bo ta jest usunieta
-        pthread_cond_signal(queue->block_operation);  
-        pthread_mutex_unlock(queue->operation_mutex);
+        prevMsg->next = prevMsg->next->next;
+    }
+    queue->msgList->size--;
+    pthread_mutex_lock(queue->operation_mutex); //budzenie jakiegos watku, ktore chce dodac wiadomosc bo ta jest usunieta
+    pthread_cond_signal(queue->block_operation);  
+    pthread_mutex_unlock(queue->operation_mutex);
 }
 
 TQueue* createQueue(int *size) { 
@@ -112,13 +112,15 @@ void subscribe(TQueue *queue, pthread_t *thread) {
     printf("Subscribing the queue...\n");
     pthread_mutex_lock(queue->access_mutex);
     Subscriber *currSub = queue->subList->head;
-    if (currSub != NULL) {
-        while (currSub->threadID != thread) {
-            currSub = currSub->next;
+    while (currSub != NULL) {
+        if (currSub->threadID == thread) {
+            pthread_mutex_unlock(queue->access_mutex);
+            printf("This thread is already subscribing the queue. Exiting the function...\n");
+            return;
         }
+        currSub = currSub->next;
     }
     if (currSub == NULL) {
-        
         Subscriber* newSubscriber = (Subscriber*)malloc(sizeof(Subscriber));
         if (newSubscriber == NULL) {
             printf("Memory allocation failed!\n");
@@ -139,10 +141,6 @@ void subscribe(TQueue *queue, pthread_t *thread) {
         queue->subList->size++;
         pthread_mutex_unlock(queue->access_mutex);
         printf("Subscribed!\n");
-    }
-    else {
-        pthread_mutex_unlock(queue->access_mutex);
-        printf("This thread is already subscribing the queue. Exiting the function...\n");
     }
 }
 
@@ -319,7 +317,7 @@ int getAvailable(TQueue *queue, pthread_t *thread) {
     return count;
 }
 
-void removeMsg(TQueue *queue, void *msg) { //zakładam, że żadna wiadomosc nie pojawia się dwa razy!!!
+void removeMsg(TQueue *queue, void *msg) { //usuwana jest wiadomosc, ktora pierwsza sie pojawi
     // bezwarunkowo usuwa wiadomosc
 
     //printf("entering critical section remove\n");
@@ -342,7 +340,7 @@ void removeMsg(TQueue *queue, void *msg) { //zakładam, że żadna wiadomosc nie
             if (prevMsg->next->content == msg) {
                 prevMsg->next = prevMsg->next->next;
                 printf("Element removed!\n");
-                queue->maxSize--;
+                queue->msgList->size--;
                 break;  
             }
             prevMsg = prevMsg->next;
@@ -396,7 +394,7 @@ void setSize(TQueue *queue, int *newSize) {
         queue->msgList->head = curr;
     }
     pthread_mutex_lock(queue->operation_mutex);
-    pthread_cond_broadcast(queue->block_operation);
+    pthread_cond_broadcast(queue->block_operation); //budzone są tylko kiedy, nowy rozmiar jest wiekszy od dotychczasowego maxa wsn nawet jak sie budza a nic nie jest zablokowane to co to za roznica
     pthread_mutex_unlock(queue->operation_mutex);
     queue->maxSize = *newSize;
     printf("New size has been set successfully.\n");

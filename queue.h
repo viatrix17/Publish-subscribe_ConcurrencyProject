@@ -10,22 +10,20 @@
 #include <unistd.h>
 #include <time.h>
 
-struct List {
+typedef struct List {
     int size;
     void* head;
     void* tail;
-};
-typedef struct List List;
+}List;
 
 typedef struct Subscriber Subscriber;
 
-struct Message {
+typedef struct Message {
     void* content;
     struct Message* next;
     int readCount; //ma zejsc do zera
     struct Subscriber *firstSub; //wskaznik na pierwszego subskrybenta ktory to odczyta
-};
-typedef struct Message Message;
+}Message;
 
 typedef struct Subscriber {
     pthread_t *threadID;
@@ -33,7 +31,7 @@ typedef struct Subscriber {
     Message *startReading;
 }Subscriber;
 
-struct TQueue {
+typedef struct TQueue {
     int maxSize;
     List *msgList;
     List *subList;
@@ -42,8 +40,7 @@ struct TQueue {
 
     pthread_mutex_t *operation_mutex;
     pthread_cond_t *block_operation;
-};
-typedef struct TQueue TQueue;
+}TQueue;
 
 
 

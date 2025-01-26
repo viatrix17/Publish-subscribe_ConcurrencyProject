@@ -6,7 +6,7 @@ void* thread_handler(void* arg) {
     char* msg2 = "second";
     char* msg3 = "GLORIOUS EVOLUTION";
     char* msg4 = "hihi";
-    char* msg5 = "half horse";
+    char* msg5 = "fdfdgd";
     TQueue* queue = (TQueue*)arg;
     pthread_t threadID = pthread_self();
     pthread_t *ptrID = &threadID;
@@ -14,6 +14,7 @@ void* thread_handler(void* arg) {
     addMsg(queue, msg);
     addMsg(queue, msg2);
     addMsg(queue, msg3);
+    sleep(4);
     addMsg(queue, msg4);
     addMsg(queue, msg5);
     //printf("skonczylo dodawanie\n");
@@ -24,8 +25,9 @@ void* thread_handler(void* arg) {
 
 void* thread2_handler(void* arg) {
 
-    int size = 6;
+    int size = 4;
     int* ptr = &size;
+    char* msg4 = "hihi";
     TQueue* queue = (TQueue*)arg;
     pthread_t threadID = pthread_self();
     pthread_t *ptrID = &threadID;
@@ -53,7 +55,7 @@ int main() {
     int T = 2;
     pthread_t threads[T];
 
-    int size = 2;
+    int size = 3;
     int* ptr = &size;
     printf("Start\n");
     TQueue *queue = createQueue(ptr);
@@ -69,6 +71,7 @@ int main() {
     for (int i = 0; i < T; i++) {
         pthread_join(threads[i], NULL);
     }
+    printf("%d\n", queue->msgList->size);
     destroyQueue(&queue);
     return 0;
 }
