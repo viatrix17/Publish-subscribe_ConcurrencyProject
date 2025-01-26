@@ -14,7 +14,7 @@ void* thread_handler(void* arg) {
     addMsg(queue, msg);
     addMsg(queue, msg2);
     addMsg(queue, msg3);
-    sleep(4);
+    sleep(4); 
     addMsg(queue, msg4);
     addMsg(queue, msg5);
     //printf("skonczylo dodawanie\n");
