@@ -52,7 +52,7 @@ Projekt jest dostępny w repozytorium pod adresem:
         pthread_cond_t* block_operation;
     }TQueue;
     ```
-    Zmienna `maxSize` przechowuje informacje o maksymalnym rozmiarze kolejki, zmienne `msgList` i `subList` to odpowiednio: lista wiadomości w kolejce i lista subkrybentów kolejki; `access_mutex` to zamek do synchronizacji odczytu i zapisu; zamek `operation_mutex` i zmienna warunkowa `block_operation` służą do blokowania wątków, kiedy kolejka jest pełna lub lista wiadomości subskrybenta jest pusta.
+    Zmienna `maxSize` przechowuje informacje o maksymalnym rozmiarze kolejki, zmienne `msgList` i `subList` to odpowiednio: lista wiadomości w kolejce i lista subskrybentów kolejki; `access_mutex` to zamek do synchronizacji odczytu i zapisu; zamek `operation_mutex` i zmienna warunkowa `block_operation` służą do blokowania wątków, kiedy kolejka jest pełna lub lista wiadomości subskrybenta jest pusta.
     
 # Funkcje
 
@@ -70,7 +70,7 @@ Program implementuje system Publish-subscribe opisany w skrypcie.
 Sprawdzone zostały sytuacje skrajne:
 * dodanie wiadomości do pustej kolejki -> natychmiastowe usunięcie wiadomości
 * dodanie wiadomości do pełnej kolejki -> wątek czeka, aż zwolni się miejsce
-* próba ponownego zasubkrybowania kolejki przez ten sam wątek -> informacja o tym, że wątek subkrybuje już kolejkę i wyjście z funkcji
+* próba ponownego zasubskrybowania kolejki przez ten sam wątek -> informacja o tym, że wątek subskrybuje już kolejkę i wyjście z funkcji
 * pobieranie wiadomości przez wątek, który nie subskrybuje kolejki -> zwrócenie wartości NULL
 * pobieranie wiadomośći przez wątek, którego lista wiadomości do odczytania jest pusta -> wątek czeka, aż jakaś wiadomość zostanie dodana do kolejki
 * zmniejszanie/powiększanie rozmiaru kolejki funkcją `setSize()` -> jeśli nowy rozmiar jest mniejszy niż obecny rozmiar, to usuwane są pierwsze wiadomości z kolejki, aby osiągnąć pożądany rozmiar; jeśli nowy rozmiar jest większy niż obecny maksymalny rozmiar, to wtedy budzone są watki, które czekają na zwolnienie miejsca w kolejce
@@ -87,13 +87,12 @@ Odporność na *aktywne czekanie*:
 
 Odporność na *głodzenie*: 
 * Użycie `pthread_cond_signal()` dla zasygnalizowania, że zwolniło się miejsce w kolejce, budzi wątek, który jako pierwszy zasnął, więc nie będzie on zagłodzony. 
-* Użycie `pthread_cond_broadcast()` przy dodawaniu wiadomości budzi czekających subkrybentów w momencie dodania nowej wiadomości, przez co nie czekają, kiedy nie trzeba.
+* Użycie `pthread_cond_broadcast()` przy dodawaniu wiadomości budzi czekających subskrybentów w momencie dodania nowej wiadomości, przez co nie czekają, kiedy nie trzeba.
 
 # Przykład użycia
 
 ![Przykład użycia programu](console_output.png)
 
--------------------------------------------------------------------------------
 
 
 
