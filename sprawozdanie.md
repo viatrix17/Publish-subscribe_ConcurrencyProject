@@ -91,7 +91,7 @@ Odporność na *głodzenie*:
 
 # Przykład użycia
 
-![Przykład użycia programu](console_output.png){width=70%}
+![Przykład użycia programu](console_output.png)
 
 -------------------------------------------------------------------------------
 
