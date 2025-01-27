@@ -30,38 +30,38 @@ void checkMsg(TQueue* queue, Message* msg) {
 
 TQueue* createQueue(int* size) { 
 
-    printf("Creating the queue...\n");
+   // printf("Creating the queue...\n");
     // memory allocation for the queue
     TQueue* queue = (TQueue*)malloc(sizeof(TQueue));
     if (queue == NULL) { 
-        perror("Memory allocation failed.\n");
+        //perror("Memory allocation failed.\n");
         return NULL;
     }
     // memory allocation for the mutexes and the conditional variable
     queue->access_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
     if (queue->access_mutex == NULL) { 
-        perror("Memory allocation failed.\n");
+        //perror("Memory allocation failed.\n");
         return NULL;
     }
     queue->operation_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
     if (queue->operation_mutex == NULL) { 
-        perror("Memory allocation failed.\n");
+        //perror("Memory allocation failed.\n");
         return NULL;
     }
     queue->block_operation = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
     if (queue->block_operation == NULL) { 
-        perror("Memory allocation failed.\n");
+        //perror("Memory allocation failed.\n");
         return NULL;
     }
     // memory allocation for the list of messages and the list of subscirbers
     queue->msgList = (List*)malloc(sizeof(List));
     if (queue->msgList == NULL) { 
-        perror("Memory allocation failed.\n");
+        //perror("Memory allocation failed.\n");
         return NULL;
     }  
     queue->subList = (List*)malloc(sizeof(List));
     if (queue->subList == NULL) { 
-        perror("Memory allocation failed.\n");
+        //perror("Memory allocation failed.\n");
         return NULL;
     } 
     // initialization of the mutexes and the conditional variable
@@ -78,15 +78,15 @@ TQueue* createQueue(int* size) {
     queue->msgList->size = 0;
     queue->subList->size = 0;
 
-    printf("The queue has been created.\n");
+    //printf("The queue has been created.\n");
     return queue;
 }
 
 void destroyQueue(TQueue** queue) {
 
-    printf("Destroying queue...\n");
+    //printf("Destroying queue...\n");
     if (*queue == NULL)  {
-        printf("Nothing to destroy.\n");
+        //printf("Nothing to destroy.\n");
         return; 
     }
     Message* currMsg = (*queue)->msgList->head, *tempMsg;
@@ -115,18 +115,18 @@ void destroyQueue(TQueue** queue) {
     }
     free(*queue);
     *queue = NULL;
-    printf("Destroyed successfully\n");
+    //printf("Destroyed successfully\n");
 }
 
 void subscribe(TQueue* queue, pthread_t* thread) { 
 
-    printf("Subscribing the queue...\n");
+    //printf("Subscribing the queue...\n");
     pthread_mutex_lock(queue->access_mutex);
     Subscriber *currSub = queue->subList->head;
     while (currSub != NULL) {
         if (currSub->threadID == thread) {
             pthread_mutex_unlock(queue->access_mutex);
-            printf("This thread is already subscribing this queue. Exiting the function...\n");
+            //printf("This thread is already subscribing this queue. Exiting the function...\n");
             return;
         }
         currSub = currSub->next;
@@ -136,7 +136,7 @@ void subscribe(TQueue* queue, pthread_t* thread) {
         Subscriber* newSubscriber = (Subscriber*)malloc(sizeof(Subscriber));
         if (newSubscriber == NULL) {
             pthread_mutex_unlock(queue->access_mutex);
-            perror("Memory allocation failed!\n");
+            //perror("Memory allocation failed!\n");
             return;
         }
         // initialization of the new subscriber
@@ -155,7 +155,7 @@ void subscribe(TQueue* queue, pthread_t* thread) {
         }
         queue->subList->size++;
         pthread_mutex_unlock(queue->access_mutex);
-        printf("Subscribed!\n");
+        //printf("Subscribed!\n");
     }
 }
 
@@ -164,7 +164,7 @@ void unsubscribe(TQueue* queue, pthread_t* thread) {
     pthread_mutex_lock(queue->access_mutex);
     if (queue == NULL || queue->msgList->head == NULL) {
         pthread_mutex_unlock(queue->access_mutex);
-        printf("Nothing to unsubscribe. Exiting...\n");
+        //printf("Nothing to unsubscribe. Exiting...\n");
         return;
     }
 
@@ -176,7 +176,7 @@ void unsubscribe(TQueue* queue, pthread_t* thread) {
                 queue->subList->head = ((Subscriber*)queue->subList->head)->next;
                 queue->subList->size--;
                 pthread_mutex_unlock(queue->access_mutex);
-                printf("Unsubscribed!\n");
+                //printf("Unsubscribed!\n");
                 return;
     }
     else {
@@ -188,25 +188,25 @@ void unsubscribe(TQueue* queue, pthread_t* thread) {
                 prev->next = prev->next->next;
                 queue->subList->size--;
                 pthread_mutex_unlock(queue->access_mutex);
-                printf("Unsubscribed!\n");
+                //printf("Unsubscribed!\n");
                 return;
             }
             prev = prev->next;
         }
     }
     pthread_mutex_unlock(queue->access_mutex);
-    printf("Subscriber not found!\n");
+    //printf("Subscriber not found!\n");
     return;
 }
 
 void addMsg(TQueue* queue, void* msg) {
     
-    printf("Adding a message...\n");
+    //printf("Adding a message...\n");
     pthread_mutex_lock(queue->access_mutex);
     // blocking behaviour when the queue is full
     pthread_mutex_lock(queue->operation_mutex);
     while (queue->msgList->size == queue->maxSize) { 
-        printf("Queue size exceeded. Waiting...\n");
+        //printf("Queue size exceeded. Waiting...\n");
         pthread_mutex_unlock(queue->access_mutex);
         pthread_cond_wait(queue->block_operation, queue->operation_mutex);
         pthread_mutex_lock(queue->access_mutex);
@@ -216,12 +216,12 @@ void addMsg(TQueue* queue, void* msg) {
     Message* newMsg = (Message*)malloc(sizeof(Message)); 
     if (newMsg == NULL) {
         pthread_mutex_unlock(queue->access_mutex);
-        perror("Memory allocation failed!\n");
+        //perror("Memory allocation failed!\n");
         return;
     }
     if (queue->subList->size == 0) {
         pthread_mutex_unlock(queue->access_mutex);
-        printf("No active subscribers - exiting function...\n");
+        //printf("No active subscribers - exiting function...\n");
         return;
     }
     newMsg->content = msg;
@@ -253,7 +253,7 @@ void addMsg(TQueue* queue, void* msg) {
     pthread_mutex_unlock(queue->operation_mutex);
 
     pthread_mutex_unlock(queue->access_mutex);
-    printf("Message added\n");
+    //printf("Message added\n");
 }
 
 void* getMsg(TQueue* queue, pthread_t* thread) { 
@@ -265,14 +265,14 @@ void* getMsg(TQueue* queue, pthread_t* thread) {
         temp = temp->next;
     }
     if (temp == NULL) {
-        printf("This thread is not subsrcibing this queue.\n");
+        //printf("This thread is not subsrcibing this queue.\n");
         pthread_mutex_unlock(queue->access_mutex);
         return NULL;
     }
     // blocking behaviour when the list of messages is empty
     pthread_mutex_lock(queue->operation_mutex);
     while(temp->startReading == NULL) {
-        printf("The list of messages for this subscriber is empty. Waiting...\n"); 
+        //printf("The list of messages for this subscriber is empty. Waiting...\n"); 
         pthread_mutex_unlock(queue->access_mutex); 
         pthread_cond_wait(queue->block_operation, queue->operation_mutex);
         pthread_mutex_lock(queue->access_mutex); 
@@ -302,7 +302,7 @@ int getAvailable(TQueue* queue, pthread_t* thread) {
     }
     if (tempSub == NULL) {
         pthread_mutex_unlock(queue->access_mutex);
-        printf("This thread doesn't subscribe this queue.\n");
+        //printf("This thread doesn't subscribe this queue.\n");
         return count;
     }
     else {
@@ -323,7 +323,7 @@ void removeMsg(TQueue* queue, void* msg) {
 
     if (queue == NULL || queue->msgList->head == NULL) {
         pthread_mutex_unlock(queue->access_mutex);
-        printf("Element not found!\n");
+        //printf("Element not found!\n");
         return;
     }
 
@@ -336,14 +336,14 @@ void removeMsg(TQueue* queue, void* msg) {
         while (prevMsg->next != NULL) {
             if (prevMsg->next->content == msg) {
                 prevMsg->next = prevMsg->next->next;
-                printf("Element removed!\n");
+                //printf("Element removed!\n");
                 queue->msgList->size--;
                 break;  
             }
             prevMsg = prevMsg->next;
         }
         if (prevMsg->next == NULL) { 
-            printf("Element not found!\n");
+            //printf("Element not found!\n");
             pthread_mutex_unlock(queue->access_mutex);
             return;
         }
@@ -362,18 +362,18 @@ void removeMsg(TQueue* queue, void* msg) {
     pthread_cond_signal(queue->block_operation);  
     pthread_mutex_unlock(queue->operation_mutex);
     pthread_mutex_unlock(queue->access_mutex);
-    printf("Element removed successfully!\n");
+    //printf("Element removed successfully!\n");
     return;
 }
 
 void setSize(TQueue* queue, int* newSize) { 
     
     pthread_mutex_lock(queue->access_mutex);
-    printf("Setting new size...\n");
+    //printf("Setting new size...\n");
     int currSize = queue->msgList->size;
     if (*newSize < currSize) { 
         Subscriber* tempSub;
-        printf("New size is smaller than the current queue size\n");
+        //printf("New size is smaller than the current queue size\n");
         Message* curr = queue->msgList->head;
         // removing first n messages (calculated based on new size)
         for (int i = 0; i < currSize - *newSize; i++) {
@@ -396,6 +396,6 @@ void setSize(TQueue* queue, int* newSize) {
     pthread_cond_broadcast(queue->block_operation);
     pthread_mutex_unlock(queue->operation_mutex);
     queue->maxSize = *newSize;
-    printf("New size has been set successfully.\n");
+    //printf("New size has been set successfully.\n");
     pthread_mutex_unlock(queue->access_mutex);
 }

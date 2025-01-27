@@ -17,7 +17,7 @@ void* thread_handler(void* arg) {
     //addMsg(queue, msg4); 
     addMsg(queue, msg5);
     subscribe(queue, ptrID);
-    printf("Available for thread 1: %d\n", getAvailable(queue, ptrID));
+    //printf("Available for thread 1: %d\n", getAvailable(queue, ptrID));
 
     return NULL;
 }
@@ -33,10 +33,10 @@ void* thread2_handler(void* arg) {
     pthread_t *ptrID = &threadID;
 
     subscribe(queue, ptrID);
-    printf("Available for thread 2: %d\n", getAvailable(queue, ptrID));
+    //printf("Available for thread 2: %d\n", getAvailable(queue, ptrID));
     sleep(4);
     setSize(queue, ptr);
-    printf("Available for thread 2: %d\n", getAvailable(queue, ptrID));
+    //printf("Available for thread 2: %d\n", getAvailable(queue, ptrID));
 
     return NULL;
 }
@@ -62,7 +62,7 @@ int main() {
 
     int size = 3;
     int* ptr = &size;
-    printf("Start\n");
+   
     TQueue *queue = createQueue(ptr);
 
     if(pthread_create(&threads[0], NULL, thread_handler, (void*)queue) != 0){

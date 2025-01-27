@@ -65,7 +65,9 @@ Projekt jest dostępny w repozytorium pod adresem:
 
 Program implementuje system Publish-subscribe opisany w skrypcie.
 
+Wizualizacja struktury:
 
+![Wizualizacja struktur](queue_structure.png)
 
 Sprawdzone zostały sytuacje skrajne:
 * dodanie wiadomości do pustej kolejki -> natychmiastowe usunięcie wiadomości
