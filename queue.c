@@ -28,7 +28,7 @@ void checkMsg(TQueue* queue, Message* msg) {
     }
 }
 
-TQueue* createQueue(int* size) { 
+TQueue* createQueue(int size) { 
 
    // printf("Creating the queue...\n");
     // memory allocation for the queue
@@ -70,7 +70,7 @@ TQueue* createQueue(int* size) {
     pthread_cond_init(queue->block_operation, NULL);
 
     // initialization of the lists of stored data
-    queue->maxSize = *size;
+    queue->maxSize = size;
     queue->msgList->head = NULL;
     queue->msgList->tail = NULL;
     queue->subList->head = NULL;
@@ -82,15 +82,15 @@ TQueue* createQueue(int* size) {
     return queue;
 }
 
-void destroyQueue(TQueue** queue) {
+void destroyQueue(TQueue* queue) { //hmmm jak to zrobic na 
 
     //printf("Destroying queue...\n");
-    if (*queue == NULL)  {
+    if (queue == NULL)  {
         //printf("Nothing to destroy.\n");
         return; 
     }
-    Message* currMsg = (*queue)->msgList->head, *tempMsg;
-    Subscriber* currSub = (*queue)->subList->head, *tempSub;
+    Message* currMsg = queue->msgList->head, *tempMsg;
+    Subscriber* currSub = queue->subList->head, *tempSub;
     while (currMsg != NULL) {
         tempMsg = currMsg;
         currMsg = currMsg->next;
@@ -101,24 +101,24 @@ void destroyQueue(TQueue** queue) {
         currSub = currSub->next;
         free(tempSub);
     }
-    if ((*queue)->access_mutex != NULL) {
-        pthread_mutex_destroy((*queue)->access_mutex);  
-        free((*queue)->access_mutex);  
+    if (queue->access_mutex != NULL) {
+        pthread_mutex_destroy(queue->access_mutex);  
+        free(queue->access_mutex);  
     }
-    if ((*queue)->operation_mutex != NULL) {
-        pthread_mutex_destroy((*queue)->operation_mutex);  
-        free((*queue)->operation_mutex);  
+    if (queue->operation_mutex != NULL) {
+        pthread_mutex_destroy(queue->operation_mutex);  
+        free(queue->operation_mutex);  
     }
-    if ((*queue)->block_operation != NULL) {
-        pthread_cond_destroy((*queue)->block_operation);  
-        free((*queue)->block_operation);  
+    if (queue->block_operation != NULL) {
+        pthread_cond_destroy(queue->block_operation);  
+        free(queue->block_operation);  
     }
-    free(*queue);
-    *queue = NULL;
+    free(queue);
+    queue = NULL;
     //printf("Destroyed successfully\n");
 }
 
-void subscribe(TQueue* queue, pthread_t* thread) { 
+void subscribe(TQueue* queue, pthread_t thread) { 
 
     //printf("Subscribing the queue...\n");
     pthread_mutex_lock(queue->access_mutex);
@@ -159,7 +159,7 @@ void subscribe(TQueue* queue, pthread_t* thread) {
     }
 }
 
-void unsubscribe(TQueue* queue, pthread_t* thread) { 
+void unsubscribe(TQueue* queue, pthread_t thread) { 
     
     pthread_mutex_lock(queue->access_mutex);
     if (queue == NULL || queue->msgList->head == NULL) {
@@ -256,7 +256,7 @@ void addMsg(TQueue* queue, void* msg) {
     //printf("Message added\n");
 }
 
-void* getMsg(TQueue* queue, pthread_t* thread) { 
+void* getMsg(TQueue* queue, pthread_t thread) { 
 
     pthread_mutex_lock(queue->access_mutex);
 
@@ -291,7 +291,7 @@ void* getMsg(TQueue* queue, pthread_t* thread) {
     return receivedMsg;
 }
 
-int getAvailable(TQueue* queue, pthread_t* thread) {
+int getAvailable(TQueue* queue, pthread_t thread) {
 
     int count = 0;
 
@@ -366,17 +366,17 @@ void removeMsg(TQueue* queue, void* msg) {
     return;
 }
 
-void setSize(TQueue* queue, int* newSize) { 
+void setSize(TQueue* queue, int newSize) { 
     
     pthread_mutex_lock(queue->access_mutex);
     //printf("Setting new size...\n");
     int currSize = queue->msgList->size;
-    if (*newSize < currSize) { 
+    if (newSize < currSize) { 
         Subscriber* tempSub;
         //printf("New size is smaller than the current queue size\n");
         Message* curr = queue->msgList->head;
         // removing first n messages (calculated based on new size)
-        for (int i = 0; i < currSize - *newSize; i++) {
+        for (int i = 0; i < currSize - newSize; i++) {
             // removing messages from subscribers' lists of messages
             tempSub = queue->subList->head;
             while (tempSub != NULL) {
@@ -395,7 +395,7 @@ void setSize(TQueue* queue, int* newSize) {
     pthread_mutex_lock(queue->operation_mutex);
     pthread_cond_broadcast(queue->block_operation);
     pthread_mutex_unlock(queue->operation_mutex);
-    queue->maxSize = *newSize;
+    queue->maxSize = newSize;
     //printf("New size has been set successfully.\n");
     pthread_mutex_unlock(queue->access_mutex);
 }

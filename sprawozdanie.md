@@ -6,10 +6,8 @@ date:     v1.0, 2025-01-27
 lang:     pl-PL
 ---
 
-
 Projekt jest dostępny w repozytorium pod adresem:  
-<https://github.com/viatrix17/Publish-subscribe_ConcurrencyProject>
-
+https://github.com/viatrix17/Publish-subscribe_ConcurrencyProject
 
 # Struktury danych
 
@@ -22,6 +20,7 @@ Projekt jest dostępny w repozytorium pod adresem:
         void* tail;
     }List;
     ```
+
     Zmienne `head` i `tail` wskazują odpowiednio na: początek i koniec listy, a zmienna `size` przechowuje rozmiar listy.
     
 2. Wiadomości definiowane są strukturą `Message`:
@@ -34,6 +33,7 @@ Projekt jest dostępny w repozytorium pod adresem:
         struct Subscriber* firstSub; 
     }Message;
     ```
+
     Zmienna `content` przechowuje treść wiadomości (wskaźnik na wskazany przez użytkownika obszar pamięci); zmienna `next` jest wskaźnikiem na następną wiadomość; zmienna `readCount` przechowuje liczbę subskrybentów, którzy nie przeczytali jeszcze tej wiadomości; zmienna `firstSub` jest wskaźnikiem na pierwszego subskrybenta, który będzie czytać tę wiadomość.
 
 3. Subskrybenci definiowani są strukturą `Subscriber`:
@@ -45,6 +45,7 @@ Projekt jest dostępny w repozytorium pod adresem:
         Message* startReading;
     }Subscriber;
     ```
+
     Zmienna `threadID` wskazuje na identyfikator wątku; zmienna `next` wskazuje na następnego subskrybenta; zmienna `startReading` wskazuje na pierwszą wiadomość, która ma być przeczytana przez ten wątek.
 
 4. Kolejka definiowana jest strukturą `TQueue`:
@@ -59,6 +60,7 @@ Projekt jest dostępny w repozytorium pod adresem:
         pthread_cond_t* block_operation;
     }TQueue;
     ```
+
     Zmienna `maxSize` przechowuje informacje o maksymalnym rozmiarze kolejki, zmienne `msgList` i `subList` to odpowiednio: lista wiadomości w kolejce i lista subskrybentów kolejki; `access_mutex` to zamek do synchronizacji odczytu i zapisu; zamek `operation_mutex` i zmienna warunkowa `block_operation` służą do blokowania wątków, kiedy kolejka jest pełna lub lista wiadomości subskrybenta jest pusta.
     
 # Funkcje
@@ -78,6 +80,7 @@ Wizualizacja struktury:
 Oczywiście zmienne `firstSub` oraz `startReading` mogą wskazywać na `NULL` jednak nie zamieściłam tego w wizualizacji dla przejrzystości.
 
 Sprawdzone zostały sytuacje skrajne:
+
 * dodanie wiadomości do pustej kolejki -> natychmiastowe usunięcie wiadomości
 * dodanie wiadomości do pełnej kolejki -> wątek czeka, aż zwolni się miejsce
 * próba ponownego zasubskrybowania kolejki przez ten sam wątek -> informacja o tym, że wątek subskrybuje już kolejkę i wyjście z funkcji
@@ -88,14 +91,17 @@ Sprawdzone zostały sytuacje skrajne:
 
 
 Odporność na *zakleszczenie*: 
+
 * Zamek `acces_mutex` jest zawsze zajmowany przed zamkiem `operation_mutex`, więc wątki nie będą czekać na zwolnienie zamków przez siebie nawzajem.
 * Nie ma sytuacji, w której wątki czekają na zasoby, które sobie wzajemnie nieskończenie długo blokują. Jeśli wątek zablokuje się na funkcji `addMsg()`, kiedy kolejka jest pełna, to funkcja `getMsg()` dla jakiegoś wątku zwolni miejsce w kolejce, ewentualnie zrobi to funkcja `removeMsg()` albo `unsubscribe()`, więc da się z potencjalnego zakleszczenia wyjść. Natomiast jeśli wątek zablokuje się na funkcji `getMsg()`, kiedy lista wiadomości do przeczytania dla danego wątku jest pusta, to wtedy inny wątek, wywołujac `addMsg()` doda wiadomość i odblokuje pierwszy wątek. Ścieżka potrzebnych zasobów się nie zapętla. 
 
 Odporność na *aktywne czekanie*: 
+
 * Użycie zamków zapewnia wzajemne wykluczanie, a wątki się blokują lub czekają na zwolnienie zamka zamiast ciągłego sprawdzania, czy mogą wykonać daną operację, 
 * Użycie zmiennej warunkowej `block_operation` pozwala uniknąć aktywnego czekania, ponieważ zamek `operation_mutex` chroniący tą zmienną warunkową jest zwalniany, kiedy zmienna czeka na sygnał budzący wątek.
 
 Odporność na *głodzenie*: 
+
 * Użycie `pthread_cond_signal()` dla zasygnalizowania, że zwolniło się miejsce w kolejce, budzi wątek, który jako pierwszy zasnął, więc nie będzie on zagłodzony. 
 * Użycie `pthread_cond_broadcast()` przy dodawaniu wiadomości budzi czekających subskrybentów w momencie dodania nowej wiadomości, przez co nie czekają, kiedy nie trzeba.
 
