@@ -37,10 +37,8 @@ struct TQueue {
     int maxSize;
     List *msgList;
     List *subList;
-    //mutex for read/write operations synchronization
+    //mutex for read/write operations synchronization and conditional variable to implement blocking behaviour of addMsg() and gettMsg()
     pthread_mutex_t *access_mutex;
-    //mutex and conditional variable for blocking behaviour of addMsg() and getMsg()
-    pthread_mutex_t *operation_mutex;
     pthread_cond_t *block_operation;
 };
 typedef struct TQueue TQueue;

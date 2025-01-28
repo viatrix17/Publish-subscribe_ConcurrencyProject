@@ -1,53 +1,58 @@
 #include "queue.h"
 
-void* thread_handler(void* arg) {
+void* publish(void* arg) {
 
     char* msg = "one";
     char* msg2 = "two";
-    char* msg3 = "three";
-    char* msg4 = "four";
-    char* msg5 = "five";
+    // char* msg3 = "three";
+    // char* msg4 = "four";
+    // char* msg5 = "five";
     TQueue* queue = (TQueue*)arg;
-    pthread_t threadID = pthread_self();
-    sleep(1);
+    sleep(3);
     addMsg(queue, msg);
+    sleep(5);
     addMsg(queue, msg2);
-    addMsg(queue, msg3);
-    addMsg(queue, msg4); 
-    addMsg(queue, msg5);
-    subscribe(queue, threadID);
-    //printf("Available for thread 1: %d\n", getAvailable(queue, ptrID));
+    // addMsg(queue, msg3);
+    // addMsg(queue, msg4); 
+    // addMsg(queue, msg5);
 
     return NULL;
 }
 
 void* thread2_handler(void* arg) {
 
-    int size = 8;
-    //char* msg = "six";
-
     TQueue* queue = (TQueue*)arg;
-    pthread_t threadID = pthread_self();
+    pthread_t threadID = pthread_self();   
 
+    sleep(1);
     subscribe(queue, threadID);
-    //printf("Available for thread 2: %d\n", getAvailable(queue, ptrID));
-    sleep(4);
-    setSize(queue, size);
-    //printf("Available for thread 2: %d\n", getAvailable(queue, ptrID));
+    sleep(2);
+    printf("Available for thread 1: %d\n", getAvailable(queue, threadID));
+    sleep(2);
+    printf("Available for thread 1: %d\n", getAvailable(queue, threadID));
+    sleep(6);
+    printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
+    char* receivedMsg = getMsg(queue, threadID);
+    if (receivedMsg != NULL) {
+        printf("message received by thread 1: %s\n", (char*)receivedMsg);
+    }
 
     return NULL;
 }
 
 void* thread3_handler(void* arg) {
 
-    char* msg = "seven";
-    char* msg2 = "eight";
-
     TQueue* queue = (TQueue*)arg;
-
-    addMsg(queue, msg);
-    addMsg(queue, msg2);
-    removeMsg(queue, msg);
+    pthread_t threadID = pthread_self();
+    
+    subscribe(queue, threadID);
+    sleep(2);
+    unsubscribe(queue, threadID);
+    sleep(2);
+    subscribe(queue, threadID);
+    printf("Available for thread 2: %d\n\n", getAvailable(queue, threadID));
+    sleep(6);
+    printf("Available for thread 2: %d\n\n", getAvailable(queue, threadID));
 
 
     return NULL;
@@ -57,11 +62,11 @@ int main() {
     int T = 3;
     pthread_t threads[T];
 
-    int size = 3;
+    int size = 2;
 
     TQueue *queue = createQueue(size);
 
-    if(pthread_create(&threads[0], NULL, thread_handler, (void*)queue) != 0){
+    if(pthread_create(&threads[0], NULL, publish, (void*)queue) != 0){
         perror("pthread_create failed\n");
         return -1;
     }
@@ -73,9 +78,11 @@ int main() {
         perror("pthread_create failed\n");
         return -1;
     }
-    for (int i = 0; i < T; i++) {
-        pthread_join(threads[i], NULL);
-    }
+   
+    pthread_join(threads[0], NULL);
+    pthread_join(threads[1], NULL);
+    pthread_join(threads[2], NULL);
+
     destroyQueue(queue);
     return 0;
 }
