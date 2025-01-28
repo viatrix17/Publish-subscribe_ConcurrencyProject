@@ -40,7 +40,7 @@ https://github.com/viatrix17/Publish-subscribe_ConcurrencyProject
 
     ```C
     typedef struct Subscriber {
-        pthread_t* threadID;
+        pthread_t threadID;
         struct Subscriber* next;
         Message* startReading;
     }Subscriber;

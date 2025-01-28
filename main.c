@@ -5,7 +5,7 @@ void* thread_handler(void* arg) {
     char* msg = "one";
     char* msg2 = "two";
     char* msg3 = "three";
-    //char* msg4 = "four";
+    char* msg4 = "four";
     char* msg5 = "five";
     TQueue* queue = (TQueue*)arg;
     pthread_t threadID = pthread_self();
@@ -13,7 +13,7 @@ void* thread_handler(void* arg) {
     addMsg(queue, msg);
     addMsg(queue, msg2);
     addMsg(queue, msg3);
-    //addMsg(queue, msg4); 
+    addMsg(queue, msg4); 
     addMsg(queue, msg5);
     subscribe(queue, threadID);
     //printf("Available for thread 1: %d\n", getAvailable(queue, ptrID));
