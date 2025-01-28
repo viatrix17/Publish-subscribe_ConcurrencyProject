@@ -12,7 +12,9 @@ Projekt jest dostępny w repozytorium pod adresem:
 
 
 # Struktury danych
+
 1. Elementy listy definiowane są strukturą `List`:
+
     ```C
     typedef struct List {
         int size;
@@ -23,6 +25,7 @@ Projekt jest dostępny w repozytorium pod adresem:
     Zmienne `head` i `tail` wskazują odpowiednio na: początek i koniec listy, a zmienna `size` przechowuje rozmiar listy.
     
 2. Wiadomości definiowane są strukturą `Message`:
+
     ```C
     typedef struct Message {
         void* content;
@@ -32,7 +35,9 @@ Projekt jest dostępny w repozytorium pod adresem:
     }Message;
     ```
     Zmienna `content` przechowuje treść wiadomości (wskaźnik na wskazany przez użytkownika obszar pamięci); zmienna `next` jest wskaźnikiem na następną wiadomość; zmienna `readCount` przechowuje liczbę subskrybentów, którzy nie przeczytali jeszcze tej wiadomości; zmienna `firstSub` jest wskaźnikiem na pierwszego subskrybenta, który będzie czytać tę wiadomość.
+
 3. Subskrybenci definiowani są strukturą `Subscriber`:
+
     ```C
     typedef struct Subscriber {
         pthread_t* threadID;
@@ -41,7 +46,9 @@ Projekt jest dostępny w repozytorium pod adresem:
     }Subscriber;
     ```
     Zmienna `threadID` wskazuje na identyfikator wątku; zmienna `next` wskazuje na następnego subskrybenta; zmienna `startReading` wskazuje na pierwszą wiadomość, która ma być przeczytana przez ten wątek.
+
 4. Kolejka definiowana jest strukturą `TQueue`:
+
     ```C
     typedef struct TQueue {
         int maxSize;
@@ -68,6 +75,7 @@ Program implementuje system Publish-subscribe opisany w skrypcie.
 Wizualizacja struktury:
 
 ![Wizualizacja struktur](queue_structure.png)
+Oczywiście zmienne `firstSub` oraz `startReading` mogą wskazywać na `NULL` jednak nie zamieściłam tego w wizualizacji dla przejrzystości.
 
 Sprawdzone zostały sytuacje skrajne:
 * dodanie wiadomości do pustej kolejki -> natychmiastowe usunięcie wiadomości
