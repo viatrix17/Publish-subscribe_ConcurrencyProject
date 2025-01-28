@@ -12,8 +12,6 @@ void delMsg(TQueue* queue, Message* msg) {
         prevMsg->next = prevMsg->next->next;
     }
     queue->msgList->size--;
-    //waking a thread that is waiting for freeing up space in the queue
-    pthread_cond_signal(queue->block_operation);  
 }
 
 void checkMsg(TQueue* queue, Message* msg) {
@@ -222,6 +220,7 @@ void addMsg(TQueue* queue, void* msg) {
     while (queue->msgList->size == queue->maxSize) { 
         printf("Queue size exceeded. Waiting...\n");
         pthread_cond_wait(queue->block_operation, queue->access_mutex);
+        printf("Checking for free space...\n");
     }
 
     Message* newMsg = (Message*)malloc(sizeof(Message)); 
@@ -271,7 +270,6 @@ void* getMsg(TQueue* queue, pthread_t thread) {
 
     Subscriber* tempSub = queue->subList->head;
     while (tempSub != NULL) {
-        printf("spr\n");
         if (!pthread_equal(tempSub->threadID, thread)) {
             tempSub = tempSub->next;
         }
@@ -285,18 +283,22 @@ void* getMsg(TQueue* queue, pthread_t thread) {
         return NULL;
     }
     // blocking behaviour when the list of messages is empty
-    while(tempSub->startReading == NULL) {
-        printf("The list of messages for this subscriber is empty. Waiting...\n"); 
+    while (tempSub->startReading == NULL) {
+        printf("The list of messages for thread %lu is empty. Waiting...\n", (unsigned long)thread); 
         pthread_cond_wait(queue->block_operation, queue->access_mutex);
+        printf("Checking for new messages...\n");
     }
-    Message* receivedMsg = tempSub->startReading->content;
+    Message* receivedMsg = tempSub->startReading;
     tempSub->startReading->readCount--;
     // checking if the received message might be deleted
     if (tempSub->startReading->readCount == 0) {
         delMsg(queue, tempSub->startReading);
     }
     // updating the list of messages for this thread
+    // printf("start %s new start %s\n", (char*)tempSub->startReading->content, (char*)tempSub->startReading->next->content);
     tempSub->startReading = tempSub->startReading->next; 
+    // waking a thread that is waiting for free space in the queue
+    pthread_cond_broadcast(queue->block_operation);  
     printf("Message received!\n");
     pthread_mutex_unlock(queue->access_mutex);
 
@@ -339,7 +341,7 @@ int getAvailable(TQueue* queue, pthread_t thread) {
 void removeMsg(TQueue* queue, void* msg) { 
 
     pthread_mutex_lock(queue->access_mutex);
-
+    printf("Removing a message...\n");
     if (queue == NULL || queue->msgList->head == NULL) {
         pthread_mutex_unlock(queue->access_mutex);
         //printf("Element not found!\n");
@@ -355,7 +357,6 @@ void removeMsg(TQueue* queue, void* msg) {
         while (prevMsg->next != NULL) {
             if (prevMsg->next->content == msg) {
                 prevMsg->next = prevMsg->next->next;
-                //printf("Element removed!\n");
                 queue->msgList->size--;
                 break;  
             }
@@ -376,21 +377,21 @@ void removeMsg(TQueue* queue, void* msg) {
         tempSub = tempSub->next;
     }
 
-   //waking a thread that is waiting for freeing up space in the queue
-    pthread_cond_signal(queue->block_operation);  
+    // waking a thread that is waiting for free space in the queue
+    pthread_cond_signal(queue->block_operation); 
+    printf("Message removed!\n"); 
     pthread_mutex_unlock(queue->access_mutex);
-    //printf("Element removed successfully!\n");
     return;
 }
 
 void setSize(TQueue* queue, int newSize) { 
     
     pthread_mutex_lock(queue->access_mutex);
-    //printf("Setting new size...\n");
+    printf("Setting new size...\n");
     int currSize = queue->msgList->size;
     if (newSize < currSize) { 
         Subscriber* tempSub;
-        //printf("New size is smaller than the current queue size\n");
+        printf("New size is smaller than the current queue size\n");
         Message* curr = queue->msgList->head;
         // removing first n messages (calculated based on new size)
         for (int i = 0; i < currSize - newSize; i++) {
@@ -409,8 +410,10 @@ void setSize(TQueue* queue, int newSize) {
         queue->msgList->head = curr;
     }
     // waking up the threads that are waiting for freeing up space in the queue
-    pthread_cond_broadcast(queue->block_operation);
+    else {
+        pthread_cond_broadcast(queue->block_operation);
+    }
     queue->maxSize = newSize;
-    //printf("New size has been set successfully.\n");
+    printf("New size has been set successfully.\n");
     pthread_mutex_unlock(queue->access_mutex);
 }
