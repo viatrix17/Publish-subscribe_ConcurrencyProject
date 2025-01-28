@@ -56,11 +56,11 @@ void* thread2_handler(void* arg) {
     //
     subscribe(queue, threadID);
     sleep(3);
-    printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
+    // printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
     getMsg(queue, threadID);
-    printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
+    // printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
     sleep(4);
-    printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
+    // printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
     getMsg(queue, threadID);
 
     //TEST2
@@ -129,8 +129,8 @@ void* thread3_handler(void* arg) {
 
 void* thread4_handler(void* arg) {
 
-    TQueue* queue = (TQueue*)arg;
-    pthread_t threadID = pthread_self();
+    // TQueue* queue = (TQueue*)arg;
+    // pthread_t threadID = pthread_self();
     
     //TEST 2
     //
