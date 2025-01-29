@@ -46,7 +46,7 @@ https://github.com/viatrix17/Publish-subscribe_ConcurrencyProject
     }Subscriber;
     ```
 
-    Zmienna `threadID` wskazuje na identyfikator wątku; zmienna `next` wskazuje na następnego subskrybenta; zmienna `startReading` wskazuje na pierwszą wiadomość, która ma być przeczytana przez ten wątek.
+    Zmienna `threadID` to identyfikator wątku (subskrybenta); zmienna `next` wskazuje na następnego subskrybenta; zmienna `startReading` wskazuje na pierwszą wiadomość, która ma być przeczytana przez ten wątek.
 
 4. Kolejka definiowana jest strukturą `TQueue`:
 
