@@ -4,9 +4,9 @@ void* publish(void* arg) {
 
     char* msg = "one";
     char* msg2 = "two";
-    char* msg3 = "three";
-    char* msg4 = "four";
-    char* msg5 = "five";
+    // char* msg3 = "three";
+    // char* msg4 = "four";
+    // char* msg5 = "five";
     
 
     TQueue* queue = (TQueue*)arg;
@@ -86,7 +86,7 @@ void* thread2_handler(void* arg) {
     // printf("Available for thread 1: %d\n", getAvailable(queue, threadID));
     sleep(6);
     // printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
-    char* ok = getMsg(queue, threadID);
+    // char* ok = getMsg(queue, threadID);
     // printf("%s\n", ok);
 
     return NULL;

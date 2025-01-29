@@ -1,5 +1,33 @@
 #include "queue.h"
 
+int findMsg(Message* message, void* msgContent) {
+    int result = 2;
+    if (message->content == msgContent) {
+        return result;
+    }
+    message = message->next;
+    while (message != NULL) {
+        if (message->content == msgContent) {
+            result = 1;
+            return result;
+        }
+        message = message->next;
+    }
+    result = 0;
+    return result;
+}
+
+void* findSub(TQueue* queue, pthread_t thread) {
+    Subscriber* tempSub = queue->subList->head;
+    while (tempSub != NULL) {
+        if (pthread_equal(tempSub->threadID, thread)) {
+            return tempSub;
+        }
+        tempSub = tempSub->next;
+    }
+    return NULL;
+}
+
 void delMsg(TQueue* queue, Message* msg) {
     if (queue->msgList->head == msg) {
             queue->msgList->head = ((Message*)queue->msgList->head)->next;
@@ -129,6 +157,7 @@ void subscribe(TQueue* queue, pthread_t thread) {
     newSubscriber->threadID = thread;
     newSubscriber->next = NULL;
     newSubscriber->startReading = NULL;
+    newSubscriber->msgCount = 0;
         
     // adding the new subscriber to the list of subscribers
     if (queue->subList->head == NULL) {
@@ -218,7 +247,7 @@ void addMsg(TQueue* queue, void* msg) {
     newMsg->content = msg;
     newMsg->next = NULL;
     newMsg->readCount = queue->subList->size;
-    newMsg->firstSub = queue->subList->head;
+    // newMsg->firstSub = queue->subList->head;
 
     if (queue->msgList->head == NULL) {
         queue->msgList->head = newMsg;
@@ -236,6 +265,7 @@ void addMsg(TQueue* queue, void* msg) {
         if (currSub->startReading == NULL) { 
             currSub->startReading = newMsg;
         }
+        currSub->msgCount++;
         currSub = currSub->next;
     }
     // waking up the threads that are waiting for new messages
@@ -249,15 +279,7 @@ void* getMsg(TQueue* queue, pthread_t thread) {
     pthread_mutex_lock(queue->access_mutex);
     // printf("Getting a message for thread %lu...\n", (unsigned long)thread);
 
-    Subscriber* tempSub = queue->subList->head;
-    while (tempSub != NULL) {
-        if (!pthread_equal(tempSub->threadID, thread)) {
-            tempSub = tempSub->next;
-        }
-        else {
-            break;
-        }
-    }
+    Subscriber* tempSub = findSub(queue, thread);
     if (tempSub == NULL) {
         // printf("This thread is not subscribing this queue.\n");
         pthread_mutex_unlock(queue->access_mutex);
@@ -278,6 +300,7 @@ void* getMsg(TQueue* queue, pthread_t thread) {
     // updating the list of messages for this thread
     // printf("start %s new start %s\n", (char*)tempSub->startReading->content, (char*)tempSub->startReading->next->content);
     tempSub->startReading = tempSub->startReading->next; 
+    tempSub->msgCount--;
     // waking a thread that is waiting for free space in the queue
     pthread_cond_broadcast(queue->block_operation);  
     // printf("Message received!\n");
@@ -288,32 +311,17 @@ void* getMsg(TQueue* queue, pthread_t thread) {
 
 int getAvailable(TQueue* queue, pthread_t thread) {
 
-    int count = 0;
+    int count = -1;
 
     pthread_mutex_lock(queue->access_mutex);
     // printf("Get available\n");
-    Subscriber* tempSub = queue->subList->head;
-    while (tempSub != NULL) {
-        if (!pthread_equal(tempSub->threadID, thread)) {
-            tempSub = tempSub->next;
-        }
-        else {
-            break;
-        }
-    }
+    Subscriber* tempSub = findSub(queue, thread);
     if (tempSub == NULL) {
         pthread_mutex_unlock(queue->access_mutex);
         // printf("Thread %lu doesn't subscribe this queue.\n", thread);
-        return count-1;
+        return count;
     }
-    else {
-        Message* tempMsg = tempSub->startReading;
-        // traversing the list and counting the elements
-        while (tempMsg != NULL) {
-            count++;
-            tempMsg = tempMsg->next;
-        }
-    }
+    count = tempSub->msgCount;
     // printf("Count returned\n");
     pthread_mutex_unlock(queue->access_mutex);
     return count;
@@ -349,11 +357,16 @@ void removeMsg(TQueue* queue, void* msg) {
             return;
         }
     }
+    int ifMsgFound;
     // checking for each subscriber if the removed message is the first message on its list of messages
     Subscriber* tempSub = queue->subList->head;
     while (tempSub != NULL) {
-        if (tempSub->startReading->content == msg) {
-            tempSub->startReading = tempSub->startReading->next; 
+        ifMsgFound = findMsg(tempSub->startReading, msg);
+        if (ifMsgFound != 0) {
+            tempSub->msgCount--;
+        }
+        if (ifMsgFound == 2) {
+            tempSub->startReading = tempSub->startReading->next;
         }
         tempSub = tempSub->next;
     }
@@ -380,6 +393,7 @@ void setSize(TQueue* queue, int newSize) {
             tempSub = queue->subList->head;
             while (tempSub != NULL) {
                 if (tempSub->startReading->content == curr->content) {
+                    tempSub->msgCount--;
                     tempSub->startReading = tempSub->startReading->next;
                 }
                 tempSub = tempSub->next;
@@ -390,7 +404,7 @@ void setSize(TQueue* queue, int newSize) {
         }
         queue->msgList->head = curr;
     }
-    // waking up the threads that are waiting for freeing up space in the queue
+    // waking up the threads that are waiting for free space in the queue
     else {
         pthread_cond_broadcast(queue->block_operation);
     }

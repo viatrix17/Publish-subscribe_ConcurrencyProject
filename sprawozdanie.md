@@ -30,11 +30,10 @@ https://github.com/viatrix17/Publish-subscribe_ConcurrencyProject
         void* content;
         struct Message* next;
         int readCount;
-        struct Subscriber* firstSub; 
     }Message;
     ```
 
-    Zmienna `content` przechowuje treść wiadomości (wskaźnik na wskazany przez użytkownika obszar pamięci); zmienna `next` jest wskaźnikiem na następną wiadomość; zmienna `readCount` przechowuje liczbę subskrybentów, którzy nie przeczytali jeszcze tej wiadomości; zmienna `firstSub` jest wskaźnikiem na pierwszego subskrybenta, który będzie czytać tę wiadomość.
+    Zmienna `content` przechowuje treść wiadomości (wskaźnik na wskazany przez użytkownika obszar pamięci); zmienna `next` jest wskaźnikiem na następną wiadomość; zmienna `readCount` przechowuje liczbę subskrybentów, którzy nie przeczytali jeszcze tej wiadomości.
 
 3. Subskrybenci definiowani są strukturą `Subscriber`:
 
@@ -43,10 +42,11 @@ https://github.com/viatrix17/Publish-subscribe_ConcurrencyProject
         pthread_t threadID;
         struct Subscriber* next;
         Message* startReading;
+        int msgCount;
     }Subscriber;
     ```
 
-    Zmienna `threadID` to identyfikator wątku (subskrybenta); zmienna `next` wskazuje na następnego subskrybenta; zmienna `startReading` wskazuje na pierwszą wiadomość, która ma być przeczytana przez ten wątek.
+    Zmienna `threadID` to identyfikator wątku (subskrybenta); zmienna `next` wskazuje na następnego subskrybenta; zmienna `startReading` wskazuje na pierwszą wiadomość, która ma być przeczytana przez ten wątek; zmienna `msgCount` przechowuje liczbę wiadomości czekających na przeczytanie przez ten wątek.
 
 4. Kolejka definiowana jest strukturą `TQueue`:
 

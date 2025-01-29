@@ -24,13 +24,13 @@ struct Message {
     void* content;
     struct Message* next;
     int readCount; 
-    struct Subscriber *firstSub; 
 };
 
 struct Subscriber {
     pthread_t threadID;
     struct Subscriber* next;
     Message *startReading;
+    int msgCount;
 };
 
 struct TQueue {
