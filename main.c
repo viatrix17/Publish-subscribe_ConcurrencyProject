@@ -4,21 +4,22 @@ void* publish(void* arg) {
 
     char* msg = "one";
     char* msg2 = "two";
-    // char* msg3 = "three";
-    // char* msg4 = "four";
-    // char* msg5 = "five";
+    char* msg3 = "three";
+    char* msg4 = "four";
+    char* msg5 = "five";
     
 
     TQueue* queue = (TQueue*)arg;
 
     //TEST 3
-    // sleep(1);
-    // addMsg(queue, msg);
-    // addMsg(queue, msg2);
-    // addMsg(queue, msg3);
-    // addMsg(queue, msg4);
-    // sleep(3);
-    // addMsg(queue, msg5);
+    //
+    sleep(1);
+    addMsg(queue, msg);
+    addMsg(queue, msg2);
+    addMsg(queue, msg3);
+    addMsg(queue, msg4);
+    sleep(3);
+    addMsg(queue, msg5);
 
     //TEST 2
     //
@@ -38,10 +39,10 @@ void* publish(void* arg) {
     
     //TEST 1
     
-    sleep(3);
-    addMsg(queue, msg);
-    sleep(5);
-    addMsg(queue, msg2);
+    // sleep(3);
+    // addMsg(queue, msg);
+    // sleep(5);
+    // addMsg(queue, msg2);
     
 
     return NULL;
@@ -54,14 +55,14 @@ void* thread2_handler(void* arg) {
 
     //TEST3
     //
-    // subscribe(queue, threadID);
-    // sleep(3);
-    // // printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
-    // getMsg(queue, threadID);
-    // // printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
-    // sleep(4);
-    // // printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
-    // getMsg(queue, threadID);
+    subscribe(queue, threadID);
+    sleep(3);
+    // printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
+    getMsg(queue, threadID);
+    // printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
+    sleep(4);
+    // printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
+    getMsg(queue, threadID);
 
     //TEST2
     //
@@ -77,17 +78,17 @@ void* thread2_handler(void* arg) {
     //sleep(1);
     
     //TEST 1
-    
-    sleep(1);
-    subscribe(queue, threadID);
-    sleep(2);
-    // printf("Available for thread 1: %d\n", getAvailable(queue, threadID));
-    sleep(2);
-    // printf("Available for thread 1: %d\n", getAvailable(queue, threadID));
-    sleep(6);
-    // printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
-    // char* ok = getMsg(queue, threadID);
-    // printf("%s\n", ok);
+    //
+    // sleep(1);
+    // subscribe(queue, threadID);
+    // sleep(2);
+    // // printf("Available for thread 1: %d\n", getAvailable(queue, threadID));
+    // sleep(2);
+    // // printf("Available for thread 1: %d\n", getAvailable(queue, threadID));
+    // sleep(6);
+    // // printf("Available for thread 1: %d\n\n", getAvailable(queue, threadID));
+    // // char* ok = getMsg(queue, threadID);
+    // // printf("%s\n", ok);
 
     return NULL;
 }
@@ -99,9 +100,9 @@ void* thread3_handler(void* arg) {
     
     //TEST3
     // //
-    // sleep(5);
-    // subscribe(queue, threadID);
-    // getMsg(queue, threadID);
+    sleep(5);
+    subscribe(queue, threadID);
+    getMsg(queue, threadID);
 
     //TEST 2
     // sleep(2);
@@ -116,14 +117,14 @@ void* thread3_handler(void* arg) {
 
     //TEST 1
 
-    subscribe(queue, threadID);
-    sleep(2);
-    unsubscribe(queue, threadID);
-    sleep(2);
-    subscribe(queue, threadID);
-    // printf("Available for thread 2: %d\n\n", getAvailable(queue, threadID));
-    sleep(6);
-    // printf("Available for thread 2: %d\n\n", getAvailable(queue, threadID));
+    // subscribe(queue, threadID);
+    // sleep(2);
+    // unsubscribe(queue, threadID);
+    // sleep(2);
+    // subscribe(queue, threadID);
+    // // printf("Available for thread 2: %d\n\n", getAvailable(queue, threadID));
+    // sleep(6);
+    // // printf("Available for thread 2: %d\n\n", getAvailable(queue, threadID));
 
 
     return NULL;

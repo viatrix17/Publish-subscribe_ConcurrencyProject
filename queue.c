@@ -61,14 +61,19 @@ TQueue* createQueue(int size) {
         //perror("Memory allocation failed.\n");
         return NULL;
     }
-    // memory allocation for the mutexes and the conditional variable
+    // memory allocation for the mutexes and the conditional variables
     queue->access_mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
     if (queue->access_mutex == NULL) { 
         //perror("Memory allocation failed.\n");
         return NULL;
     }
-    queue->block_operation = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
-    if (queue->block_operation == NULL) { 
+    queue->full = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
+    if (queue->full == NULL) { 
+        //perror("Memory allocation failed.\n");
+        return NULL;
+    }
+    queue->empty = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
+    if (queue->empty == NULL) { 
         //perror("Memory allocation failed.\n");
         return NULL;
     }
@@ -85,7 +90,8 @@ TQueue* createQueue(int size) {
     } 
     // initialization of the mutexes and the conditional variable
     pthread_mutex_init(queue->access_mutex, NULL);
-    pthread_cond_init(queue->block_operation, NULL);
+    pthread_cond_init(queue->full, NULL);
+    pthread_cond_init(queue->empty, NULL);
 
     // initialization of the lists of stored data
     queue->maxSize = size;
@@ -123,9 +129,13 @@ void destroyQueue(TQueue* queue) { //hmmm jak to zrobic na
         pthread_mutex_destroy(queue->access_mutex);  
         free(queue->access_mutex);  
     }
-    if (queue->block_operation != NULL) {
-        pthread_cond_destroy(queue->block_operation);  
-        free(queue->block_operation);  
+    if (queue->full != NULL) {
+        pthread_cond_destroy(queue->full);  
+        free(queue->full);  
+    }
+    if (queue->empty != NULL) {
+        pthread_cond_destroy(queue->empty);  
+        free(queue->empty);  
     }
     free(queue);
     queue = NULL;
@@ -185,10 +195,7 @@ void unsubscribe(TQueue* queue, pthread_t thread) {
     }
 
     Message* tempMsg;
-    //printf("curr head %lu \t to remove %lu\t", (unsigned long)((Subscriber*)queue->subList->head)->threadID, thread);
-    //printf("curr tail %lu \n", (unsigned long)((Subscriber*)queue->subList->tail)->threadID);
     if (pthread_equal(((Subscriber*)queue->subList->head)->threadID, thread)) {
-        //printf("first sub\n");
         tempMsg = ((Subscriber*)queue->subList->head)->startReading;
                 // updating readCount for the messages that the subscriber was supposed to receive
                 checkMsg(queue, tempMsg);
@@ -229,7 +236,7 @@ void addMsg(TQueue* queue, void* msg) {
     // blocking behaviour when the queue is full
     while (queue->msgList->size == queue->maxSize) { 
         // printf("Queue size exceeded. Waiting...\n");
-        pthread_cond_wait(queue->block_operation, queue->access_mutex);
+        pthread_cond_wait(queue->full, queue->access_mutex);
         // printf("Checking for free space...\n");
     }
 
@@ -269,7 +276,7 @@ void addMsg(TQueue* queue, void* msg) {
         currSub = currSub->next;
     }
     // waking up the threads that are waiting for new messages
-    pthread_cond_broadcast(queue->block_operation); 
+    pthread_cond_broadcast(queue->empty); 
     // printf("Message added\n");
     pthread_mutex_unlock(queue->access_mutex);
 }
@@ -288,7 +295,7 @@ void* getMsg(TQueue* queue, pthread_t thread) {
     // blocking behaviour when the list of messages is empty
     while (tempSub->startReading == NULL) {
         // printf("The list of messages for thread %lu is empty. Waiting...\n", (unsigned long)thread); 
-        pthread_cond_wait(queue->block_operation, queue->access_mutex);
+        pthread_cond_wait(queue->empty, queue->access_mutex);
         // printf("Checking for new messages...\n");
     }
     char* receivedMsg = tempSub->startReading->content;
@@ -302,7 +309,7 @@ void* getMsg(TQueue* queue, pthread_t thread) {
     tempSub->startReading = tempSub->startReading->next; 
     tempSub->msgCount--;
     // waking a thread that is waiting for free space in the queue
-    pthread_cond_broadcast(queue->block_operation);  
+    pthread_cond_signal(queue->full);  
     // printf("Message received!\n");
     pthread_mutex_unlock(queue->access_mutex);
 
@@ -333,7 +340,7 @@ void removeMsg(TQueue* queue, void* msg) {
     // printf("Removing a message...\n");
     if (queue == NULL || queue->msgList->head == NULL) {
         pthread_mutex_unlock(queue->access_mutex);
-        //printf("Element not found!\n");
+        // printf("Element not found!\n");
         return;
     }
 
@@ -372,7 +379,7 @@ void removeMsg(TQueue* queue, void* msg) {
     }
 
     // waking a thread that is waiting for free space in the queue
-    pthread_cond_signal(queue->block_operation); 
+    pthread_cond_signal(queue->full); 
     // printf("Message removed!\n"); 
     pthread_mutex_unlock(queue->access_mutex);
     return;
@@ -406,7 +413,7 @@ void setSize(TQueue* queue, int newSize) {
     }
     // waking up the threads that are waiting for free space in the queue
     else {
-        pthread_cond_broadcast(queue->block_operation);
+        pthread_cond_broadcast(queue->full);
     }
     queue->maxSize = newSize;
     // printf("New size has been set successfully.\n");

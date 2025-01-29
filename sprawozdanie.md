@@ -56,17 +56,19 @@ https://github.com/viatrix17/Publish-subscribe_ConcurrencyProject
         List* msgList;
         List* subList;
         pthread_mutex_t* access_mutex;
-        pthread_mutex_t* operation_mutex;
-        pthread_cond_t* block_operation;
+        pthread_cond_t* full;
+        pthread_cond_t* empty;
     }TQueue;
     ```
 
-    Zmienna `maxSize` przechowuje informacje o maksymalnym rozmiarze kolejki, zmienne `msgList` i `subList` to odpowiednio: lista wiadomości w kolejce i lista subskrybentów kolejki; `access_mutex` to zamek do synchronizacji odczytu i zapisu; zamek `operation_mutex` i zmienna warunkowa `block_operation` służą do blokowania wątków, kiedy kolejka jest pełna lub lista wiadomości subskrybenta jest pusta.
+    Zmienna `maxSize` przechowuje informacje o maksymalnym rozmiarze kolejki, zmienne `msgList` i `subList` to odpowiednio: lista wiadomości w kolejce i lista subskrybentów kolejki; `access_mutex` to zamek do synchronizacji odczytu i zapisu oraz do implementacji blokujących zachowań funkcji `addMsg()` i `getMsg()`. Zmienne warunkowa `full` i `empty` służą do blokowania wątków, kiedy kolejka jest pełna (full) lub lista wiadomości subskrybenta jest pusta (empty).
     
 # Funkcje
 
-1. `void delMsg(TQueue *queue, Message* msg)` -- usuwanie wiadomości i budzenie wątków, czekających na zwolnienie miejsca w kolejce.
-2. `void checkMsg(TQueue* queue, Message* msg)` -- aktualizacja zmiennej `readCount` dla wszystkich wiadomość, które miały być przeczytane przez wątek, który wywołał funkcję `unsubscribe()`i sprawdzanie, czy można tą wiadomość usunąć
+1. `void findMsg(Message* message, void* msgContent)` -- szukanie wiadomości na liście wiadomości; wynik 2 oznacza, że szukana wiadomość jest pierwszą wiadomością na liście, wynik 1 oznacza, że na tej liście jest wiadomość, ale nie jest pierwsza, wynik 0 oznacza, że nie znaleziono tej wiadomości
+2. `void* findSub(TQueue* queue, pthread_t thread)` -- szukanie subskrybenta na liście subskrybentów kolejki; zwraca `NULL`, jeśli dany wątek nie subskrybuje kolejki
+3. `void delMsg(TQueue *queue, Message* msg)` -- usuwanie wiadomości i budzenie wątków, czekających na zwolnienie miejsca w kolejce.
+4. `void checkMsg(TQueue* queue, Message* msg)` -- aktualizacja zmiennej `readCount` dla wszystkich wiadomość, które miały być przeczytane przez wątek, który wywołał funkcję `unsubscribe()`i sprawdzanie, czy można tą wiadomość usunąć
 
 
 
