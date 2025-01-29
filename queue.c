@@ -140,7 +140,7 @@ void subscribe(TQueue* queue, pthread_t thread) {
         queue->subList->tail = newSubscriber; 
     }
     queue->subList->size++;
-        // printf("Subscribed!\n");
+    // printf("Subscribed!\n");
     pthread_mutex_unlock(queue->access_mutex);
     
 }
@@ -269,7 +269,7 @@ void* getMsg(TQueue* queue, pthread_t thread) {
         pthread_cond_wait(queue->block_operation, queue->access_mutex);
         // printf("Checking for new messages...\n");
     }
-    Message* receivedMsg = tempSub->startReading;
+    char* receivedMsg = tempSub->startReading->content;
     tempSub->startReading->readCount--;
     // checking if the received message might be deleted
     if (tempSub->startReading->readCount == 0) {
