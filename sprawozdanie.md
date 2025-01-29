@@ -68,8 +68,7 @@ https://github.com/viatrix17/Publish-subscribe_ConcurrencyProject
 1. `void findMsg(Message* message, void* msgContent)` -- szukanie wiadomości na liście wiadomości; wynik 2 oznacza, że szukana wiadomość jest pierwszą wiadomością na liście, wynik 1 oznacza, że na tej liście jest wiadomość, ale nie jest pierwsza, wynik 0 oznacza, że nie znaleziono tej wiadomości
 2. `void* findSub(TQueue* queue, pthread_t thread)` -- szukanie subskrybenta na liście subskrybentów kolejki; zwraca `NULL`, jeśli dany wątek nie subskrybuje kolejki
 3. `void delMsg(TQueue *queue, Message* msg)` -- usuwanie wiadomości i budzenie wątków, czekających na zwolnienie miejsca w kolejce.
-4. `void checkMsg(TQueue* queue, Message* msg)` -- aktualizacja zmiennej `readCount` dla wszystkich wiadomość, które miały być przeczytane przez wątek, który wywołał funkcję `unsubscribe()`i sprawdzanie, czy można tą wiadomość usunąć
-5. `void unsubscribeSubscriber(TQueue* queue, Subscriber* subscriber)` -- aktualizacja zmiennej `readCount` dla wszystkich wiadomość, które miały być przeczytane przez wątek, który wywołał funkcję `unsubscribe()`i sprawdzanie, czy można tą wiadomość usunąć; aktualizuje również rozmiar listy, a jeśli wątek, który anulował subskrybcję był pierwszym wątkiem w kolejce, to pierwszy elementem staje się drugi w kolejności element
+4. `void unsubscribeSubscriber(TQueue* queue, Subscriber* subscriber)` -- funkcja pomocniczna do anulowania subskrybcji: aktualizacja zmiennej `readCount` dla wszystkich wiadomość, które miały być przeczytane przez wątek, który wywołał funkcję `unsubscribe()`i sprawdzanie, czy można tą wiadomość usunąć; aktualizuje również rozmiar listy, a jeśli wątek, który anulował subskrybcję był pierwszym wątkiem w kolejce, to pierwszy elementem staje się drugi w kolejności element
 
 
 
