@@ -5,18 +5,25 @@ void* publish(void* arg) {
     char* msg = "one";
     char* msg2 = "two";
     // char* msg3 = "three";
-    // char* msg4 = "four";
-    // char* msg5 = "five";
-    
 
     TQueue* queue = (TQueue*)arg;
+    // pthread_t threadID = pthread_self();  
 
     //TEST 3
-    //
+    
     // sleep(1);
+    // subscribe(queue, threadID);
     // addMsg(queue, msg);
     // addMsg(queue, msg2);
     // addMsg(queue, msg3);
+    // removeMsg(queue, msg);
+    // int y = getAvailable(queue, threadID);
+    // // printf("%d\n", y);
+    // char* x = getMsg(queue, threadID);
+    // // printf("%s\n", x);
+    // x = getMsg(queue, threadID);
+    // // printf("%s\n", x);
+
     // addMsg(queue, msg4);
     // sleep(3);
     // addMsg(queue, msg5);

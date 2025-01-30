@@ -343,14 +343,14 @@ void removeMsg(TQueue* queue, void* msg) {
         return;
     }
 
+        Message* prevMsg = queue->msgList->head;
+
     if (((Message *)queue->msgList->head)->content == msg) { 
         queue->msgList->head = ((Message *)queue->msgList->head)->next; 
     }
     else { 
-        Message* prevMsg = queue->msgList->head;
         while (prevMsg->next != NULL) {
             if (prevMsg->next->content == msg) {
-                prevMsg->next = prevMsg->next->next;
                 break;  
             }
             prevMsg = prevMsg->next;
@@ -375,8 +375,11 @@ void removeMsg(TQueue* queue, void* msg) {
         }
         tempSub = tempSub->next;
     }
+    prevMsg->next = prevMsg->next->next;
+
 
     // waking a thread that is waiting for free space in the queue
+
     pthread_cond_signal(queue->full); 
     // printf("Message removed!\n"); 
     pthread_mutex_unlock(queue->access_mutex);
