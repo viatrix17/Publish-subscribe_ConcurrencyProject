@@ -7,17 +7,17 @@ int verbose;
 
 void* publish(void* arg) {
 
-    char* msg = "one";
-    char* msg2 = "two";
-    char* msg3 = "three";
-    char* msg4 = "four";
+    char* messages[10] = {"one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"};
 
     TQueue* queue = (TQueue*)arg;
     // pthread_t threadID = pthread_self();
 
     //TEST 7
     //
-
+    sleep(1);
+    for(int i = 0; i < 10; i++) {
+        addMsg(queue, messages[i]);
+    }
 
 
     //TEST 6
@@ -110,6 +110,7 @@ void* thread2_handler(void* arg) {
 
     // TEST 6
     
+    subscribe(queue, threadID);
     sleep(1);
     subscribe(queue, threadID);
     sleep(4);
@@ -207,13 +208,13 @@ void* thread4_handler(void* arg) {
     
     //TEST 8
     //
-    for(int i = 0; i < 10; i++) {
-        subscribe(queue, threadID);
-        subscribe(queue, threadID);
-        printf("%lu\n", (unsigned long)((Subscriber*)queue->subList->head)->threadID);
-        unsubscribe(queue, threadID);
-        unsubscribe(queue, threadID);
-    }
+    // for(int i = 0; i < 10; i++) {
+    //     subscribe(queue, threadID);
+    //     subscribe(queue, threadID);
+    //     printf("%lu\n", (unsigned long)((Subscriber*)queue->subList->head)->threadID);
+    //     unsubscribe(queue, threadID);
+    //     unsubscribe(queue, threadID);
+    // }
     //TEST 2
     //
     // sleep(5);
@@ -269,14 +270,14 @@ void myTests() {
 
 int main() {
 
-    // verifyTQueueWorksUnderStress();
+    verifyTQueueWorksUnderStress();
     // printf("\n");
     // verifyRemovingMessage2();
     // verifyRemovingMessage3();
     // verifyRemovingMessage();
-     //verifyAddingMessage();
+    //verifyAddingMessage();
 
-    myTests();
+    // myTests();
 
     return 0;
 }

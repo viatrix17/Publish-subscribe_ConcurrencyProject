@@ -32,6 +32,43 @@ void* findSub(TQueue* queue, pthread_t thread) {
     return NULL;
 }
 
+void deleteMsg(TQueue* queue, Message* currentMessage, Subscriber* startSub) {
+
+    Subscriber* tempSubscriber = startSub;
+    while (tempSubscriber != NULL) {
+        if (tempSubscriber->startReading != NULL) {
+            if (tempSubscriber->startReading == currentMessage) {
+                tempSubscriber->startReading = currentMessage->next;
+            } 
+        }
+        tempSubscriber = tempSubscriber->next;
+    }
+
+    //the message content should be freed
+    Message* tempMessage = queue->msgList->head;
+    Message* previousMessage = NULL;
+    while (tempMessage != NULL) {
+        if (tempMessage == currentMessage) {
+            if (previousMessage == NULL) {
+                queue->msgList->head = tempMessage->next;
+            }
+            else {
+                previousMessage->next = tempMessage->next;
+            }
+            free(tempMessage);
+            // preventing dangling references
+            tempMessage = NULL; 
+            break;
+        }
+        previousMessage = previousMessage->next;
+        tempMessage = tempMessage->next;
+    }
+    queue->msgList->size--;
+
+    pthread_cond_signal(queue->full);
+
+}
+
 TQueue* createQueue(int size) { 
 
     // printf("Creating the queue...\n");
@@ -192,16 +229,18 @@ void unsubscribe(TQueue* queue, pthread_t thread) {
 
     Subscriber* currentSub = (Subscriber*) queue->subList->head;
     Subscriber* previousSub = NULL;
+    Subscriber* startSub = (Subscriber*) queue->subList->head;
 
     Message* currentMessage;
 
     while (currentSub != NULL) {
-        if (pthread_equal(currentSub->threadID, thread)) {
 
+        if (pthread_equal(currentSub->threadID, thread)) {
             currentMessage = currentSub->startReading;
              // Now unlink this subscriber from the list
             if (previousSub == NULL) {
                 // We're removing the first element
+                startSub = currentSub;
                 queue->subList->head = currentSub->next;
             } 
             else {
@@ -223,7 +262,6 @@ void unsubscribe(TQueue* queue, pthread_t thread) {
         pthread_mutex_unlock(queue->access_mutex);
         return;
     }
-
     //decrementing readCount of each message in subscriber's message list 
     while (currentMessage != NULL) {
         if (currentMessage->content == NULL) {
@@ -238,41 +276,13 @@ void unsubscribe(TQueue* queue, pthread_t thread) {
         if (currentMessage->readCount > 0) {
             currentMessage->readCount--;
         }
+        Message* nextMessage = currentMessage->next;
         if (currentMessage->readCount == 0) {
             //finding subscribers with this message on their messages list
-            Subscriber* tempSubscriber = queue->subList->head;
-            while (tempSubscriber != NULL) {
-                if (tempSubscriber->startReading != NULL) {
-                    if (tempSubscriber->startReading == currentMessage) {
-                        tempSubscriber->startReading = currentMessage->next;
-                    } 
-                }
-                tempSubscriber = tempSubscriber->next;
-            }
-
-            //the message content should be freed
-            Message* tempMessage = queue->msgList->head;
-            Message* previousMessage = NULL;
-            while (tempMessage != NULL) {
-                if (tempMessage == currentMessage) {
-                    if (previousMessage == NULL) {
-                        queue->msgList->head = tempMessage->next;
-                    }
-                    else {
-                        previousMessage->next = tempMessage->next;
-                    }
-                    free(tempMessage);
-                    // preventing dangling references
-                    tempMessage = NULL; 
-                    break;
-                }
-                previousMessage = previousMessage->next;
-                tempMessage = tempMessage->next;
-            }
-            queue->msgList->size--;
-            pthread_cond_signal(queue->full);
+            deleteMsg(queue, currentMessage, startSub); 
         }
-        currentMessage = currentMessage->next;
+
+        currentMessage = nextMessage;
     }
     
     printf("Unsubscribed\n");
@@ -288,18 +298,18 @@ void addMsg(TQueue* queue, void* msg) {
     }
 
     pthread_mutex_lock(queue->access_mutex);
-    // printf("Adding a message...\n");
+    printf("Adding a message...\n");
 
 
     // blocking behaviour when the queue is full
     while (queue->msgList->size >= queue->maxSize) { 
         printf("Queue size exceeded. Waiting...\n");
         pthread_cond_wait(queue->full, queue->access_mutex);
-        // printf("Checking for free space...\n");
+        printf("Checking for free space...\n");
     }
     if (queue->subList->size == 0) {
         pthread_mutex_unlock(queue->access_mutex);
-        // printf("No active subscribers - exiting function...\n");
+        printf("No active subscribers - exiting function...\n");
         return;
     }
 
@@ -321,6 +331,7 @@ void addMsg(TQueue* queue, void* msg) {
     else { 
         ((Message*)queue->msgList->tail)->next = newMsg;
         queue->msgList->tail = newMsg;
+        //printf("new tail%s\n", (char*)((Message*)queue->msgList->tail)->content);
     }
     queue->msgList->size++;
     
@@ -335,14 +346,15 @@ void addMsg(TQueue* queue, void* msg) {
     }
     // waking up the threads that are waiting for new messages
     pthread_cond_broadcast(queue->empty); 
-    // printf("Message added\n");
+
+    printf("Message added\n");
     pthread_mutex_unlock(queue->access_mutex);
 }
 
 void* getMsg(TQueue* queue, pthread_t thread) { 
 
     pthread_mutex_lock(queue->access_mutex);
-    // printf("Getting a message for thread %lu...\n", (unsigned long)thread);
+    printf("Getting a message for thread %lu...\n", (unsigned long)thread);
 
     Subscriber* tempSub = findSub(queue, thread);
     if (tempSub == NULL) {
@@ -354,20 +366,21 @@ void* getMsg(TQueue* queue, pthread_t thread) {
     while (tempSub->startReading == NULL) {
         printf("The list of messages for thread %lu is empty. Waiting...\n", (unsigned long)thread); 
         pthread_cond_wait(queue->empty, queue->access_mutex);
-        // printf("Checking for new messages...\n");
+        printf("Checking for new messages...\n");
     }
     char* receivedMsg = tempSub->startReading->content;
     tempSub->startReading->readCount--;
-    // checking if the received message might be deleted
-    if (tempSub->startReading->readCount == 0) {
-        //delMsg(queue, tempSub->startReading);
-    }
-    // updating the list of messages for this thread
+    Message* tempMessage = tempSub->startReading;
     tempSub->startReading = tempSub->startReading->next; 
+
+    // checking if the received message might be deleted
+    if (tempMessage->readCount == 0) {
+        deleteMsg(queue, tempSub->startReading, queue->subList->head);
+    }
     tempSub->msgCount--;
     // waking a thread that is waiting for free space in the queue
     pthread_cond_signal(queue->full);  
-    // printf("Message received!\n");
+    printf("Message received!\n");
     pthread_mutex_unlock(queue->access_mutex);
 
     return receivedMsg;
