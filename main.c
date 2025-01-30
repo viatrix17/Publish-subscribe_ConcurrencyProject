@@ -1,8 +1,8 @@
-#include "queue.h"
-// #include "Tests.h"
+#include "./queue.h"
+#include "Tests.h"
 
 
-// int verbose;
+int verbose;
 
 
 void* publish(void* arg) {
@@ -13,16 +13,20 @@ void* publish(void* arg) {
     char* msg4 = "four";
 
     TQueue* queue = (TQueue*)arg;
-    // pthread_t threadID = pthread_self();  
+    // pthread_t threadID = pthread_self();
+
+    //TEST 7
+    //
+
 
 
     //TEST 6
     //
-    sleep(1);
-    addMsg(queue, msg);
-    addMsg(queue, msg2);
-    addMsg(queue, msg3);
-    addMsg(queue, msg4);
+    // sleep(1);
+    // addMsg(queue, msg);
+    // addMsg(queue, msg2);
+    // addMsg(queue, msg3);
+    // addMsg(queue, msg4);
 
     //TEST 5
     //
@@ -103,11 +107,13 @@ void* thread2_handler(void* arg) {
     TQueue* queue = (TQueue*)arg;
     pthread_t threadID = pthread_self();  
     char* msg = "one";
-    //TEST 6
-    //
+
+    // TEST 6
+    
+    sleep(1);
     subscribe(queue, threadID);
-    sleep(2);
-    removeMsg(queue, msg);
+    sleep(4);
+    unsubscribe(queue, threadID);
 
     //TEST 4
     // 
@@ -161,11 +167,12 @@ void* thread3_handler(void* arg) {
     TQueue* queue = (TQueue*)arg;
     pthread_t threadID = pthread_self();
     
+    //subscribe(queue, threadID);
     //TEST3
-    // //
-    sleep(5);
-    subscribe(queue, threadID);
-    getMsg(queue, threadID);
+    //
+    // sleep(5);
+    // subscribe(queue, threadID);
+    // getMsg(queue, threadID);
 
     //TEST 2
     // sleep(2);
@@ -195,9 +202,18 @@ void* thread3_handler(void* arg) {
 
 void* thread4_handler(void* arg) {
 
-    // TQueue* queue = (TQueue*)arg;
-    // pthread_t threadID = pthread_self();
+    TQueue* queue = (TQueue*)arg;
+    pthread_t threadID = pthread_self();
     
+    //TEST 8
+    //
+    for(int i = 0; i < 10; i++) {
+        subscribe(queue, threadID);
+        subscribe(queue, threadID);
+        printf("%lu\n", (unsigned long)((Subscriber*)queue->subList->head)->threadID);
+        unsubscribe(queue, threadID);
+        unsubscribe(queue, threadID);
+    }
     //TEST 2
     //
     // sleep(5);
@@ -214,44 +230,53 @@ void* thread4_handler(void* arg) {
     return NULL;
 }
 
+void myTests() {
+
+     int T = 4;
+    pthread_t threads[T];
+
+    int size = 3;
+
+    TQueue *queue = createQueue(size);
+
+    if(pthread_create(&threads[0], NULL, publish, (void*)queue) != 0){
+        perror("pthread_create failed\n");
+        return;
+    }
+    if(pthread_create(&threads[1], NULL, thread2_handler, (void*)queue) != 0){
+        perror("pthread_create failed\n");
+        return;
+    }
+    if(pthread_create(&threads[2], NULL, thread3_handler, (void*)queue) != 0){
+        perror("pthread_create failed\n");
+        return;
+    }
+    if(pthread_create(&threads[3], NULL, thread4_handler, (void*)queue) != 0){
+        perror("pthread_create failed\n");
+        return;
+    }
+
+    pthread_join(threads[0], NULL);
+    pthread_join(threads[1], NULL);
+    pthread_join(threads[2], NULL);
+    pthread_join(threads[3], NULL);
+
+
+    destroyQueue(queue);
+
+
+}
+
 int main() {
 
-    //  verifyTQueueWorksUnderStress();
+    // verifyTQueueWorksUnderStress();
     // printf("\n");
     // verifyRemovingMessage2();
     // verifyRemovingMessage3();
     // verifyRemovingMessage();
-    // verifyAddingMessage();
-    // int T = 4;
-    // pthread_t threads[T];
+     //verifyAddingMessage();
 
-    // int size = 3;
+    myTests();
 
-    // TQueue *queue = createQueue(size);
-
-    // if(pthread_create(&threads[0], NULL, publish, (void*)queue) != 0){
-    //     perror("pthread_create failed\n");
-    //     return -1;
-    // }
-    // if(pthread_create(&threads[1], NULL, thread2_handler, (void*)queue) != 0){
-    //     perror("pthread_create failed\n");
-    //     return -1;
-    // }
-    // if(pthread_create(&threads[2], NULL, thread3_handler, (void*)queue) != 0){
-    //     perror("pthread_create failed\n");
-    //     return -1;
-    // }
-    // if(pthread_create(&threads[3], NULL, thread4_handler, (void*)queue) != 0){
-    //     perror("pthread_create failed\n");
-    //     return -1;
-    // }
-
-    // pthread_join(threads[0], NULL);
-    // pthread_join(threads[1], NULL);
-    // pthread_join(threads[2], NULL);
-    // pthread_join(threads[3], NULL);
-
-
-    // destroyQueue(queue);
     return 0;
 }
