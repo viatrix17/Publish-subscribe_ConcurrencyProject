@@ -9,21 +9,37 @@ void* publish(void* arg) {
     TQueue* queue = (TQueue*)arg;
     // pthread_t threadID = pthread_self();  
 
-    //TEST 3
-    
-    // sleep(1);
+    //TEST 4
+    //
     // subscribe(queue, threadID);
     // addMsg(queue, msg);
     // addMsg(queue, msg2);
     // addMsg(queue, msg3);
     // removeMsg(queue, msg);
-    // int y = getAvailable(queue, threadID);
+    // // int y = getAvailable(queue, threadID);
     // // printf("%d\n", y);
-    // char* x = getMsg(queue, threadID);
-    // // printf("%s\n", x);
-    // x = getMsg(queue, threadID);
-    // // printf("%s\n", x);
+    // removeMsg(queue, msg3);
+    // // y = getAvailable(queue, threadID);
+    // // printf("%d\n", y);
+    // removeMsg(queue, msg3);
+    // printf("ok\n");
+    // y = getAvailable(queue, threadID);
+    // printf("%d\n", y);
 
+
+    // char* x = getMsg(queue, threadID);
+    // printf("%s\n", x);
+    // x = getMsg(queue, threadID);
+    // printf("%s\n", x);
+
+    //TEST 3
+    //
+    // sleep(1);
+    // subscribe(queue, threadID);
+    // addMsg(queue, msg);
+    // addMsg(queue, msg2);
+    // addMsg(queue, msg3);
+   
     // addMsg(queue, msg4);
     // sleep(3);
     // addMsg(queue, msg5);
