@@ -14,10 +14,14 @@ void* publish(void* arg) {
 
     //TEST 7
     //
-    sleep(1);
-    for(int i = 0; i < 10; i++) {
-        addMsg(queue, messages[i]);
-    }
+    addMsg(queue, messages[0]);
+    addMsg(queue, messages[0]);
+    removeMsg(queue, messages[0]);
+    removeMsg(queue, messages[0]);
+    // sleep(1);
+    // for(int i = 0; i < 5; i++) {
+    //     addMsg(queue, messages[i]);
+    // }
 
 
     //TEST 6
@@ -114,7 +118,12 @@ void* thread2_handler(void* arg) {
     sleep(1);
     subscribe(queue, threadID);
     sleep(4);
-    unsubscribe(queue, threadID);
+    // unsubscribe(queue, threadID);
+    char* x;
+    for (int i = 0; i < 4; i++) {
+        x = getMsg(queue, threadID);
+        //printf("received message: %s\n", x);
+    }
 
     //TEST 4
     // 
@@ -165,10 +174,16 @@ void* thread2_handler(void* arg) {
 
 void* thread3_handler(void* arg) {
 
+    char* messages[10] = {"one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"};
+
     TQueue* queue = (TQueue*)arg;
     pthread_t threadID = pthread_self();
     
-    //subscribe(queue, threadID);
+    sleep(1);
+    for(int i = 0; i < 4; i++) {
+        removeMsg(queue, messages[i+4]);
+    }
+
     //TEST3
     //
     // sleep(5);
@@ -270,14 +285,14 @@ void myTests() {
 
 int main() {
 
-    verifyTQueueWorksUnderStress();
+    // verifyTQueueWorksUnderStress();
     // printf("\n");
     // verifyRemovingMessage2();
     // verifyRemovingMessage3();
     // verifyRemovingMessage();
     //verifyAddingMessage();
 
-    // myTests();
+    myTests();
 
     return 0;
 }

@@ -1,37 +1,5 @@
 #include "queue.h"
 
-int findMsg(Message* message, void* msgContent) {
-    int result = 2;
-    if (message == NULL) {
-        return result-2;
-    }
-
-        if (message->content == msgContent) {
-        return result;
-    }
-    message = message->next;
-    while (message != NULL) {
-        if (message->content == msgContent) {
-            result = 1;
-            return result;
-        }
-        message = message->next;
-    }
-    result = 0;
-    return result;
-}
-
-void* findSub(TQueue* queue, pthread_t thread) {
-    Subscriber* tempSub = queue->subList->head;
-    while (tempSub != NULL) {
-        if (pthread_equal(tempSub->threadID, thread)) {
-            return tempSub;
-        }
-        tempSub = tempSub->next;
-    }
-    return NULL;
-}
-
 void deleteMsg(TQueue* queue, Message* currentMessage, Subscriber* startSub) {
 
     Subscriber* tempSubscriber = startSub;
@@ -67,6 +35,17 @@ void deleteMsg(TQueue* queue, Message* currentMessage, Subscriber* startSub) {
 
     pthread_cond_signal(queue->full);
 
+}
+
+void findSub(TQueue* queue, pthread_t thread) {
+    Subscriber* currentSub = queue->subList->head;
+    while (currentSub != NULL) {
+        printf("%lu\t", currentSub->threadID);
+        if (pthread_equal(currentSub->threadID, thread)) {
+            break; 
+        }
+        currentSub = currentSub->next;
+    }   
 }
 
 TQueue* createQueue(int size) { 
@@ -171,7 +150,6 @@ void subscribe(TQueue* queue, pthread_t thread) {
 
     Subscriber* currentSub = queue->subList->head;
     while (currentSub != NULL) {
-        printf("%lu\t", currentSub->threadID);
         if (pthread_equal(currentSub->threadID, thread)) {
             printf("This thread is already subscribing this queue. Exiting the function...\n");
             pthread_mutex_unlock(queue->access_mutex);
@@ -278,7 +256,7 @@ void unsubscribe(TQueue* queue, pthread_t thread) {
         }
         Message* nextMessage = currentMessage->next;
         if (currentMessage->readCount == 0) {
-            //finding subscribers with this message on their messages list
+            //finding subscribers with this message on their message lists
             deleteMsg(queue, currentMessage, startSub); 
         }
 
@@ -288,6 +266,7 @@ void unsubscribe(TQueue* queue, pthread_t thread) {
     printf("Unsubscribed\n");
     queue->subList->size--;
     free(currentSub);
+    currentSub = NULL;
     pthread_mutex_unlock(queue->access_mutex);
 }
 
@@ -297,8 +276,13 @@ void addMsg(TQueue* queue, void* msg) {
         return;
     }
 
+    if (msg == NULL) {
+        printf("Given message content is null. Invalid state. Exiting the program...\n");
+        exit(1);
+    } 
+
     pthread_mutex_lock(queue->access_mutex);
-    printf("Adding a message...\n");
+    printf("Adding a message...\t%s\n", (char*)msg);
 
 
     // blocking behaviour when the queue is full
@@ -356,28 +340,35 @@ void* getMsg(TQueue* queue, pthread_t thread) {
     pthread_mutex_lock(queue->access_mutex);
     printf("Getting a message for thread %lu...\n", (unsigned long)thread);
 
-    Subscriber* tempSub = findSub(queue, thread);
-    if (tempSub == NULL) {
-        // printf("This thread is not subscribing this queue.\n");
+    Subscriber* currentSub = queue->subList->head;
+    while (currentSub != NULL) {
+        if (pthread_equal(currentSub->threadID, thread)) {
+            break; 
+        }
+        currentSub = currentSub->next;
+    }
+
+    if (currentSub == NULL) {
+        printf("This thread is not subscribing this queue.\n");
         pthread_mutex_unlock(queue->access_mutex);
         return NULL;
     }
     // blocking behaviour when the list of messages is empty
-    while (tempSub->startReading == NULL) {
+    while (currentSub->startReading == NULL) {
         printf("The list of messages for thread %lu is empty. Waiting...\n", (unsigned long)thread); 
         pthread_cond_wait(queue->empty, queue->access_mutex);
         printf("Checking for new messages...\n");
     }
-    char* receivedMsg = tempSub->startReading->content;
-    tempSub->startReading->readCount--;
-    Message* tempMessage = tempSub->startReading;
-    tempSub->startReading = tempSub->startReading->next; 
+    char* receivedMsg = currentSub->startReading->content;
+    currentSub->startReading->readCount--;
+    Message* tempMessage = currentSub->startReading;
+    currentSub->startReading = currentSub->startReading->next; 
 
     // checking if the received message might be deleted
     if (tempMessage->readCount == 0) {
-        deleteMsg(queue, tempSub->startReading, queue->subList->head);
+        deleteMsg(queue, tempMessage, queue->subList->head);
     }
-    tempSub->msgCount--;
+    currentSub->msgCount--;
     // waking a thread that is waiting for free space in the queue
     pthread_cond_signal(queue->full);  
     printf("Message received!\n");
@@ -392,13 +383,20 @@ int getAvailable(TQueue* queue, pthread_t thread) {
 
     pthread_mutex_lock(queue->access_mutex);
     // printf("Get available\n");
-    Subscriber* tempSub = findSub(queue, thread);
-    if (tempSub == NULL) {
+    Subscriber* currentSub = queue->subList->head;
+    while (currentSub != NULL) {
+        printf("%lu\t", currentSub->threadID);
+        if (pthread_equal(currentSub->threadID, thread)) {
+            break; 
+        }
+        currentSub = currentSub->next;
+    }
+    if (currentSub == NULL) {
         pthread_mutex_unlock(queue->access_mutex);
         // printf("Thread %lu doesn't subscribe this queue.\n", thread);
         return count;
     }
-    count = tempSub->msgCount;
+    count = currentSub->msgCount;
     // printf("Count returned\n");
     pthread_mutex_unlock(queue->access_mutex);
     return count;
@@ -410,44 +408,63 @@ void removeMsg(TQueue* queue, void* msg) {
         return;
     }
     pthread_mutex_lock(queue->access_mutex);
-    // printf("Removing a message...\n");
+    printf("Removing a message...\t%s\n", (char*)msg);
     if (queue->msgList->head == NULL) {
         pthread_mutex_unlock(queue->access_mutex);
-        // printf("Element not found fjndjfg!\n");
+        printf("Element not found - the queue is empty!\n");
         return;
     }
 
-    Message* prevMsg = queue->msgList->head;
+    Message* currentMessage = (Message*) queue->msgList->head;
 
-    if (((Message *)queue->msgList->head)->content == msg) { 
-        // checking for each subscriber if the removed message is the first message on its list of messages
-        //checkSub(queue, msg);
-        queue->msgList->head = ((Message *)queue->msgList->head)->next; 
-        queue->msgList->size--;
-        pthread_cond_signal(queue->full); 
-        // printf("Message removed\n");
+    Message* previousMessage = NULL;
+
+    Message* startMessage = (Message*) queue->subList->head;
+
+
+    while (currentMessage != NULL) {
+        if (currentMessage->content == msg) {
+             // Now unlink this message from the list
+            if (previousMessage == NULL) {
+                // We're removing the first element
+                startMessage = currentMessage;
+                queue->msgList->head = currentMessage->next;
+            } 
+            else {
+                // Bypass the current message
+                previousMessage->next = currentMessage->next;
+            }
+
+            if (queue->subList->tail == currentMessage) {
+                queue->subList->tail = previousMessage;
+            }
+            break;
+        }
+        previousMessage = currentMessage;
+        currentMessage = currentMessage->next;
+    }
+
+    if (currentMessage == NULL) {
+        printf("Message not found\n");
         pthread_mutex_unlock(queue->access_mutex);
         return;
     }
-    while (prevMsg->next != NULL) {
-        if (prevMsg->next->content == msg) {
-            //checkSub(queue, msg);
 
-            queue->msgList->size--;
-            prevMsg->next = prevMsg->next->next;
-
-            // waking a thread that is waiting for free space in the queue
-            pthread_cond_signal(queue->full); 
-            // printf("Message removed!\n"); 
-            pthread_mutex_unlock(queue->access_mutex);
-            return;
+    // checking for each subscriber if the removed message is the first message on its list of messages 
+    Subscriber* tempSubscriber = queue->subList->head;
+    while (tempSubscriber != NULL) {
+        if (tempSubscriber->startReading != NULL) {
+            if (tempSubscriber->startReading == currentMessage) {
+                tempSubscriber->startReading = currentMessage->next;
+            } 
         }
-        prevMsg = prevMsg->next;
+        tempSubscriber = tempSubscriber->next;
     }
-     
-    // printf("Element not found!\n");
+    free(currentMessage);
+    currentMessage = NULL;
+    printf("Message removed!\n");
+    pthread_cond_signal(queue->full);
     pthread_mutex_unlock(queue->access_mutex);
-    
 }
 
 void setSize(TQueue* queue, int newSize) { 
