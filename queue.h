@@ -64,4 +64,5 @@ void removeMsg(TQueue *queue, void *msg);
 
 void setSize(TQueue *queue, int newSize);
 
+
 #endif
