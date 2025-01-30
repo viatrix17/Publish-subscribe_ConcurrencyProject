@@ -1,8 +1,8 @@
 #include "queue.h"
-#include "Tests.h"
+// #include "Tests.h"
 
 
-int verbose;
+// int verbose;
 
 
 void* publish(void* arg) {
