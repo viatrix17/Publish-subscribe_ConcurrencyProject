@@ -385,7 +385,6 @@ int getAvailable(TQueue* queue, pthread_t thread) {
     // printf("Get available\n");
     Subscriber* currentSub = queue->subList->head;
     while (currentSub != NULL) {
-        printf("%lu\t", currentSub->threadID);
         if (pthread_equal(currentSub->threadID, thread)) {
             break; 
         }
@@ -424,10 +423,32 @@ void removeMsg(TQueue* queue, void* msg) {
 
     while (currentMessage != NULL) {
         if (currentMessage->content == msg) {
+         // checking for each subscriber if the removed message is the first message on its list of messages 
+
+            Subscriber* tempSubscriber = queue->subList->head;
+            while (tempSubscriber != NULL) {
+                if (tempSubscriber->startReading != NULL) {
+                    if (tempSubscriber->startReading == currentMessage) {
+                        tempSubscriber->startReading = currentMessage->next;
+                        tempSubscriber->msgCount--;
+                    } 
+                    else if (tempSubscriber->startReading->next != NULL) {
+                        Message* tempMessage = tempSubscriber->startReading->next;
+                        while (tempMessage != NULL) {
+                            if (tempMessage == currentMessage) {
+                                tempSubscriber->msgCount--;
+                                break;
+                            }
+                            tempMessage = tempMessage->next;
+                        }
+                    }
+                }
+                tempSubscriber = tempSubscriber->next;
+            }
+
              // Now unlink this message from the list
             if (previousMessage == NULL) {
                 // We're removing the first element
-                startMessage = currentMessage;
                 queue->msgList->head = currentMessage->next;
             } 
             else {
@@ -449,17 +470,7 @@ void removeMsg(TQueue* queue, void* msg) {
         pthread_mutex_unlock(queue->access_mutex);
         return;
     }
-
-    // checking for each subscriber if the removed message is the first message on its list of messages 
-    Subscriber* tempSubscriber = queue->subList->head;
-    while (tempSubscriber != NULL) {
-        if (tempSubscriber->startReading != NULL) {
-            if (tempSubscriber->startReading == currentMessage) {
-                tempSubscriber->startReading = currentMessage->next;
-            } 
-        }
-        tempSubscriber = tempSubscriber->next;
-    }
+    
     free(currentMessage);
     currentMessage = NULL;
     printf("Message removed!\n");
@@ -470,11 +481,11 @@ void removeMsg(TQueue* queue, void* msg) {
 void setSize(TQueue* queue, int newSize) { 
     
     pthread_mutex_lock(queue->access_mutex);
-    // printf("Setting new size...\n");
+    printf("Setting new size...\n");
     int currSize = queue->msgList->size;
     if (newSize < currSize) { 
         Subscriber* tempSub;
-        // printf("New size is smaller than the current queue size\n");
+        printf("New size is smaller than the current queue size\n");
         Message* curr = queue->msgList->head;
         // removing first n messages (calculated based on new size)
         for (int i = 0; i < currSize - newSize; i++) {
@@ -498,6 +509,6 @@ void setSize(TQueue* queue, int newSize) {
         pthread_cond_broadcast(queue->full);
     }
     queue->maxSize = newSize;
-    // printf("New size has been set successfully.\n");
+    printf("New size has been set successfully.\n");
     pthread_mutex_unlock(queue->access_mutex);
 }
