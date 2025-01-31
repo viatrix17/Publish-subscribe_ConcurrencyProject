@@ -14,7 +14,7 @@ void* publish(void* arg) {
         "kind", "lazy", "more", "nope" };
 
     TQueue* queue = (TQueue*)arg;
-    pthread_t threadID = pthread_self();
+    // pthread_t threadID = pthread_self();
 
     //TEST 7
     //
@@ -25,7 +25,7 @@ void* publish(void* arg) {
     // removeMsg(queue, messages[0]);
     // removeMsg(queue, messages[0]);
     sleep(1);
-    for(int i = 0; i < 20; i++) {
+    for(int i = 0; i < 10; i++) {
         addMsg(queue, messages[i]);
     }
 
@@ -116,7 +116,7 @@ void* thread2_handler(void* arg) {
 
     TQueue* queue = (TQueue*)arg;
     pthread_t threadID = pthread_self();  
-    char* msg = "one";
+    // char* msg = "one";
 
     // TEST 6
     
@@ -124,18 +124,18 @@ void* thread2_handler(void* arg) {
     // sleep(1);
     subscribe(queue, threadID);
     sleep(3);
-    int y;
-    y = getAvailable(queue, threadID);
-    printf("available messages for thread %lu: %d\n", (unsigned long)threadID, y);
+    // int y;
+    // y = getAvailable(queue, threadID);
+    // // printf("available messages for thread %lu: %d\n", (unsigned long)threadID, y);
 
-    // // unsubscribe(queue, threadID);
-    char* x;
-    for (int i = 0; i < 5; i++) {
-        y = getAvailable(queue, threadID);
-        printf("available messages for thread %lu: %d\n", (unsigned long)threadID, y);
-        // x = getMsg(queue, threadID);
-        // printf("received message: %s\n", x);
-    }
+    // // // unsubscribe(queue, threadID);
+    // // char* x;
+    // for (int i = 0; i < 5; i++) {
+    //     y = getAvailable(queue, threadID);
+    //     // printf("available messages for thread %lu: %d\n", (unsigned long)threadID, y);
+    //     // x = getMsg(queue, threadID);
+    //     // printf("received message: %s\n", x);
+    // }
 
     //TEST 4
     // 
@@ -189,7 +189,7 @@ void* thread3_handler(void* arg) {
     char* messages[10] = {"one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"};
 
     TQueue* queue = (TQueue*)arg;
-    pthread_t threadID = pthread_self();
+    // pthread_t threadID = pthread_self();
     
     // sleep(5);
     // setSize(queue, 3);
@@ -235,8 +235,8 @@ void* thread3_handler(void* arg) {
 
 void* thread4_handler(void* arg) {
 
-    TQueue* queue = (TQueue*)arg;
-    pthread_t threadID = pthread_self();
+    // TQueue* queue = (TQueue*)arg;
+    // pthread_t threadID = pthread_self();
     
     //TEST 8
     //
