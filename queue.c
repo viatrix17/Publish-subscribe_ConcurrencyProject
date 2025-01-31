@@ -284,6 +284,7 @@ void addMsg(TQueue* queue, void* msg) {
     pthread_mutex_lock(queue->access_mutex);
     // printf("Adding a message...\t%s\n", (char*)msg);
 
+    // printf("%d\n", queue->msgList->size);
 
     // blocking behaviour when the queue is full
     while (queue->msgList->size >= queue->maxSize) { 
@@ -338,7 +339,7 @@ void addMsg(TQueue* queue, void* msg) {
 void* getMsg(TQueue* queue, pthread_t thread) { 
 
     pthread_mutex_lock(queue->access_mutex);
-    // printf("Getting a message for thread %lu...\n", (unsigned long)thread);
+    printf("Getting a message for thread %lu...\n", (unsigned long)thread);
 
     Subscriber* currentSub = queue->subList->head;
     while (currentSub != NULL) {
@@ -367,11 +368,11 @@ void* getMsg(TQueue* queue, pthread_t thread) {
     // checking if the received message might be deleted
     if (tempMessage->readCount == 0) {
         deleteMsg(queue, tempMessage, queue->subList->head);
+
     }
     currentSub->msgCount--;
     // waking a thread that is waiting for free space in the queue
-    pthread_cond_signal(queue->full);  
-    // printf("Message received!\n");
+    printf("Message received!\n");
     pthread_mutex_unlock(queue->access_mutex);
 
     return receivedMsg;
@@ -471,7 +472,9 @@ void removeMsg(TQueue* queue, void* msg) {
     
     free(currentMessage);
     currentMessage = NULL;
+    queue->msgList->size--;
     // printf("Message removed!\n");
+
     pthread_cond_signal(queue->full);
     pthread_mutex_unlock(queue->access_mutex);
 }
